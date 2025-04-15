@@ -218,17 +218,16 @@ namespace BaseClass
             while (currentActionPoints > 0)
             {
                 byte[] directions = null;
-                Troop attackableObj = null;
+                Troop atkTarget = null;
                 byte moveableDir = 255;
                 // 根据当前状态来执行行为
                 switch (currentState)
                 {
                     case TroopState.Forward:
                         directions = isPlayer ? new byte[] { 3, 0, 1 , 2 } : new byte[] { 2, 0, 1 ,3 };
-                        attackableObj = PerformTargetCheck(directions);
-                        if (attackableObj != null)
+                        if (GetAtkTarget(directions, out atkTarget))
                         {
-                            Attack(attackableObj);
+                            Attack(atkTarget);
                         }
                         else
                         {
@@ -254,9 +253,9 @@ namespace BaseClass
                         {
                             MoveByDirection(outflankDir);
                         }
-                        else
+                        else if (GetAtkTarget(directions, out atkTarget))
                         {
-                            Attack(PerformTargetCheck(directions));
+                            Attack(atkTarget);
                         }
                         data.actBonus--;
                         yield return new WaitForSeconds(0.5f);
@@ -270,19 +269,18 @@ namespace BaseClass
                         {
                             MoveByDirection(backWard);
                         }
-                        else
+                        else if (GetAtkTarget(directions, out atkTarget))
                         {
-                            Attack(PerformTargetCheck(directions));
+                            Attack(atkTarget);
                         }
                         data.actBonus--;
                         yield return new WaitForSeconds(0.5f);
                         break;
                     case TroopState.Idle:
                         directions = isPlayer ? new byte[4] { 3, 0, 1 ,2} : new byte[4] { 2, 0, 1 ,3};
-                        attackableObj = PerformTargetCheck(directions);
-                        if (attackableObj != null)
+                        if (GetAtkTarget(directions, out atkTarget))
                         {
-                            Attack(attackableObj);
+                            Attack(atkTarget);
                             data.actBonus--;
                             yield return new WaitForSeconds(0.5f);
                         }
@@ -801,118 +799,110 @@ namespace BaseClass
             BattleManager.Instance.battleMap[arrayPos.y, arrayPos.x] |= lastPosition;
             ArrayPositionToWorld();//移动到数组对应位置
         }
-    
-    
-        // 这个方法用来检查多个方向上的敌人
-        public bool CheckEnemyInDirections(byte[] directions)
-        {
-            detectedPositions = new List<(byte, byte)>(); // 用于存储检测到的终点坐标
-
-            // 遍历给定的方向数组，检测每个方向
-            for(int i = 0; i < directions.Length; i++)
-            {
-                CheckSingleDirectionEnemy(directions[i]);
-            }
-
-            return detectedPositions.Count > 0;
-        }
-
+        
         public bool IsEnemy(int x, int y)
         {
             return isPlayer ? (BattleManager.Instance.battleMap[y, x] & 0x80) != 0 : (BattleManager.Instance.battleMap[y, x] & 0x40) != 0;
         }
     
         // 单个方向检测
-        public virtual bool CheckSingleDirectionEnemy(byte direction)
+        public bool CheckSingleDirectionEnemy(byte direction, byte distance, out Troop enemy)
         {
-            // 起始坐标
-            byte startX = (byte)arrayPos.x;
-            byte startY = (byte)arrayPos.y;
+            // 初始化敌人变量
+            enemy = null;
+            // 起始自身坐标
+            var x = arrayPos.x;
+            var y = arrayPos.y;
 
-            byte distance = 1;
-            // 目标坐标
-            byte targetX = startX;
-            byte targetY = startY;
-
-            // 根据方向调整目标坐标
-            switch (direction)
+            // 检测范围从1到最大攻击范围
+            for (byte range = 1; range <= distance; range++)
             {
-                case 0: // 上方向 (Up)
-                    targetY = (byte)(startY - distance);
-                    break;
-                case 1: // 下方向 (Down)
-                    targetY = (byte)(startY + distance);
-                    break;
-                case 2: // 左方向 (Left)
-                    targetX = (byte)(startX - distance);
-                    break;
-                case 3: // 右方向 (Right)
-                    targetX = (byte)(startX + distance);
-                    break;
-                default:
-                    Debug.LogError("无效的方向: " + direction);
-                    return false;
-            }
+                // 目标坐标
+                var targetX = x;
+                var targetY = y;
 
-            // 检查是否越界
-            if (targetX < 0 || targetX > 15 || targetY < 0 || targetY > 6)
-            {
-                return false; // 跳过本次检查，继续下一个距离
-            }
+                // 根据方向调整目标坐标
+                switch (direction)
+                {
+                    case 0: // 上方向 (Up)
+                        targetY = y - range;
+                        break;
+                    case 1: // 下方向 (Down)
+                        targetY = y + range;
+                        break;
+                    case 2: // 左方向 (Left)
+                        targetX = x - range;
+                        break;
+                    case 3: // 右方向 (Right)
+                        targetX = x + range;
+                        break;
+                    default:
+                        Debug.LogError("无效的方向: " + direction);
+                        return false;
+                }
 
-            // 检查是否是敌人
-            if (IsEnemy(targetX, targetY))
-            {
-                detectedPositions.Add((targetX, targetY));
-                //Debug.Log($"本体{startX},{startY}在方向 {direction} 和距离 {Distance} 上发现敌人: ({targetX}, {targetY})");
-                return true; // 找到敌人
-            }
-        
+                // 检查是否越界
+                if (targetX < 0 || targetX > 15 || targetY < 0 || targetY > 6)
+                {
+                    return false; // 碰到边界停止检查
+                }
 
-            //Debug.Log($"在方向 {face} 范围内未发现敌人");
+                // 检查是否是敌人
+                if (IsEnemy(targetX, targetY))
+                {
+                    enemy = BattleManager.Instance.GetEnemyTroopByXY(isPlayer, targetX, targetY);
+                    //Debug.Log($"本体{startX},{startY}在方向 {direction} 和距离 {Distance} 上发现敌人: ({targetX}, {targetY})");
+                    return true; // 找到敌人
+                }
+            }
             return false; // 如果没有找到敌人
         }
 
 
-        // 用于调用并输出检测结果
-        public virtual Troop PerformTargetCheck(byte[] directions)
+        /// <summary>
+        /// 获取攻击目标
+        /// </summary>
+        /// <param name="directions">攻击方向</param>
+        /// <param name="target">攻击对象</param>
+        /// <returns>返回方向顺序中优先的可攻击的敌军目标</returns>
+        public virtual bool GetAtkTarget(byte[] directions, out Troop target)
         {
-            if (health <= 0) return null;
+            // 初始化敌人变量
+            target = null;
+            
+            if (health <= 0) return false;
 
-            // 进行检测并返回检测到的敌人位置
-            if (CheckEnemyInDirections(directions))
+            foreach (var direction in directions)
             {
-                // 输出检测到的敌人坐标
-                foreach (var position in detectedPositions)
+                // 进行检测并返回检测到的敌人位置
+                if (CheckSingleDirectionEnemy(direction, 1 , out Troop enemy))
                 {
-                    return BattleManager.Instance.GetEnemyTroopByXY(isPlayer, position.Item1, position.Item2);
+                    target = enemy;
+                    return true;
                 }
             }
-            else
-            {
-                //Debug.Log("范围内没有敌人");
-            }
-            return null;
+            
+            return false;
         }
 
-        public virtual void Attack(Troop defenser)
+        public virtual void Attack(Troop defender)
         {
             // 攻击逻辑
-            if (defenser != null)
+            if (defender != null)
             {
                 // 获取目标坐标
-                byte targetX = (byte)defenser.arrayPos.x;
-                byte targetY = (byte)defenser.arrayPos.y;
+                byte targetX = (byte)defender.arrayPos.x;
+                byte targetY = (byte)defender.arrayPos.y;
                 data.face = JudgeFace(targetX, targetY);
                 TurnDirection(face);
-                if (troopType == TroopType.Captain && defenser.troopType == TroopType.Captain)
+                if (troopType == TroopType.Captain && defender.troopType == TroopType.Captain)
                 {
                     BattleManager.Instance.ExecuteSolo();
                 }
                 else
                 {
                     
-                    defenser.TakeDamage(this);
+                    defender.TakeDamage(this);
                 }
             }
             else
@@ -1574,22 +1564,22 @@ namespace BaseClass
         }
     }
 
-// 弓箭手类
+    // 弓箭手类
     public class Archer : Troop
     {
-        public byte range;
         public GameObject arrowPrefab;
-        
 
-        public override Troop PerformTargetCheck(byte[] directions) 
+        public override bool GetAtkTarget(byte[] directions, out Troop target) 
         {
-            if (health <= 0) return null;
+            target = null;
+            // 检查是否死亡
+            if (health <= 0) return false;
 
-            range = 5;
+            byte  range = 4;
 
             // 检查是否有技能和计策加成
             if (GeneralListCache.GetGeneral(generalID).HasSkill(2, 6)) // 连弩特技
-                range = (byte)(range + 1);
+                range++;
 
             if (isPlayer)
             {
@@ -1603,73 +1593,18 @@ namespace BaseClass
             }
         
             // 进行检测并返回检测到的敌人位置
-            if (CheckEnemyInDirections(directions))
+            foreach (var direction in directions)
             {
-                // 输出检测到的敌人坐标
-                foreach (var position in detectedPositions)
+                // 进行检测并返回检测到的敌人位置
+                if (CheckSingleDirectionEnemy(direction, range , out Troop enemy))
                 {
-                    return BattleManager.Instance.GetEnemyTroopByXY(isPlayer, position.Item1, position.Item2);
+                    target = enemy;
+                    return true;
                 }
             }
-            else
-            {
-                //Debug.Log("范围内没有敌人");
-            }
-            return null;
+            
+            return false;
         }
-
-        public override bool CheckSingleDirectionEnemy(byte direction)
-        {
-            // 起始坐标
-            byte startX = (byte)arrayPos.x;
-            byte startY = (byte)arrayPos.y;
-
-            // 检测范围从1到最大攻击范围
-            for (byte distance = 1; distance <= range; distance++)
-            {
-                // 目标坐标
-                byte targetX = startX;
-                byte targetY = startY;
-
-                // 根据方向调整目标坐标
-                switch (direction)
-                {
-                    case 0: // 上方向 (Up)
-                        targetY = (byte)(startY - distance);
-                        break;
-                    case 1: // 下方向 (Down)
-                        targetY = (byte)(startY + distance);
-                        break;
-                    case 2: // 左方向 (Left)
-                        targetX = (byte)(startX - distance);
-                        break;
-                    case 3: // 右方向 (Right)
-                        targetX = (byte)(startX + distance);
-                        break;
-                    default:
-                        Debug.LogError("无效的方向: " + direction);
-                        return false;
-                }
-
-                // 检查是否越界
-                if (targetX < 0 || targetX > 15 || targetY < 0 || targetY > 6)
-                {
-                    continue; // 跳过本次检查，继续下一个距离
-                }
-
-                // 检查是否是敌人
-                if (IsEnemy(targetX, targetY))
-                {
-                    detectedPositions.Add((targetX, targetY));
-                    //Debug.Log($"本体{startX},{startY}在方向 {direction} 和距离 {Distance} 上发现敌人: ({targetX}, {targetY})");
-                    return true; // 找到敌人
-                }
-            }
-            return false; // 如果没有找到敌人
-        }
-
-    
-    
     
         public override void Attack(Troop defenser)
         {
@@ -1746,7 +1681,7 @@ namespace BaseClass
             damage = Mathf.Max(damage, 1.0f);
 
             // 标记是否暴击
-            bool isbaoji = false;
+            bool critical = false;
 
             // AI进攻时的计算
             if (attacker.isPlayer)
@@ -1779,7 +1714,7 @@ namespace BaseClass
                 if (Random.Range(0,3) < 1)
                 {
                     damage += damage / 2.0f;
-                    isbaoji = true;
+                    critical = true;
                 }
             }
             else if (atkGen.HasSkill(2, 3))// 特技弓将
@@ -1787,25 +1722,25 @@ namespace BaseClass
                 if (Random.Range(0,5) < 1)
                 {
                     damage += damage / 2.0f;
-                    isbaoji = true;
+                    critical = true;
                 }
             }
         
             // 判断地形是否触发特殊效果
-            if (atkGen.HasSkill(2, 4) && BattleManager.Instance.battleTerrain == 9 && !isbaoji)// 特技水将
+            if (atkGen.HasSkill(2, 4) && BattleManager.Instance.battleTerrain == 9 && !critical)// 特技水将
             {
                 if (Random.Range(0,6) < 1)
                 {
                     damage += damage / 2.0f;
-                    isbaoji = true;
+                    critical = true;
                 }
             }
-            else if (atkGen.HasSkill(2, 5) && (BattleManager.Instance.battleTerrain == 10 || BattleManager.Instance.battleTerrain == 11) && !isbaoji)// 特技乱战
+            else if (atkGen.HasSkill(2, 5) && (BattleManager.Instance.battleTerrain == 10 || BattleManager.Instance.battleTerrain == 11) && !critical)// 特技乱战
             {
                 if (Random.Range(0,6) < 1)
                 {
                     damage += damage / 2.0f;
-                    isbaoji = true;
+                    critical = true;
                 }
             }
             // 返回最终的伤害值
@@ -1813,7 +1748,7 @@ namespace BaseClass
         }
     }
 
-// 步兵类
+    // 步兵类
     public class Infantry : Troop
     {
         

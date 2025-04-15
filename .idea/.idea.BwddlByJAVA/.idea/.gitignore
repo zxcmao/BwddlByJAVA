@@ -4,6 +4,8 @@
 # Rider 忽略的文件
 /contentModel.xml
 /projectSettingsUpdater.xml
+/CopilotChatHistory.xml
+/CopilotWebChatHistory.xml
 /.idea.BwddlByJAVA.iml
 /modules.xml
 # 基于编辑器的 HTTP 客户端请求

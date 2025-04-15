@@ -129,9 +129,8 @@ namespace Battle
             actionTimer = 0f; // 重置计时器
 
             byte[] directions = troop.isPlayer ? new byte[] { 3, 0, 1, 2 } : new byte[] { 2, 0, 1, 3 };
-            Troop target = troop.PerformTargetCheck(directions);
 
-            if (target != null)
+            if (troop.GetAtkTarget(directions, out Troop target))
             {
                 troop.Attack(target);
             }
@@ -194,8 +193,7 @@ namespace Battle
             else
             {
                 byte[] directions = troop.isPlayer ? new byte[] { 3 } : new byte[] { 2 };
-                Troop target = troop.PerformTargetCheck(directions);
-                if (target != null)
+                if (troop.GetAtkTarget(directions, out Troop target))
                 {
                     troop.Attack(target);
                 }
@@ -254,8 +252,7 @@ namespace Battle
             else
             {
                 byte[] directions = troop.isPlayer ? new byte[] { 2 } : new byte[] { 3 };
-                Troop target = troop.PerformTargetCheck(directions);
-                if (target != null)
+                if (troop.GetAtkTarget(directions, out Troop target))
                 {
                     troop.Attack(target);
                 }
@@ -300,8 +297,7 @@ namespace Battle
             actionTimer = 0f;
 
             byte[] directions = troop.isPlayer ? new byte[] { 3, 0, 1, 2 } : new byte[] { 2, 0, 1, 3 };
-            Troop target = troop.PerformTargetCheck(directions);
-            if (target != null)
+            if (troop.GetAtkTarget(directions, out Troop target))
             {
                 troop.Attack(target);
             }

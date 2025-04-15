@@ -701,13 +701,179 @@ namespace Battle
      
 
         //TODO Battle时AI将军判断是否撤退
+        bool AIBattleGenRetreat()
+        {
+            // 获取参与战斗的士兵数量，分别计算己方和敌方的数量
+            short pySoldierNum = GetBattleSoldierNum(true);  // 玩家士兵数量
+            short aiSoldierNum = GetBattleSoldierNum(false); // AI士兵数量
+
+            // 获取己方将军的初始坐标
+            byte aix = (byte)BM.aiTroops[0].arrayPos.x; // AI士兵的X坐标
+            byte aiy = (byte)BM.aiTroops[0].arrayPos.y; // AI士兵的Y坐标
+
+            short canatkps = 0;  // 可攻击点数
+            byte testx = 0;     // 测试用X坐标
+            byte testy = 0;     // 测试用Y坐标
+
+            try
+            {
+                // 检查所有玩家士兵
+                foreach (var hmTroop in BM.hmTroops)
+                {
+                    if (hmTroop.health <= 0)
+                        continue;
+                    byte cellX = (byte)hmTroop.arrayPos.x; // 士兵的X坐标
+                    byte cellY = (byte)hmTroop.arrayPos.y; // 士兵的Y坐标
+                    byte dx = (byte)Math.Abs(aix - cellX); // X方向上的距离
+                    byte dy = (byte)Math.Abs(aiy - cellY); // Y方向上的距离
+                    bool willBeAtk = false; // 判断是否遭受攻击
+
+                    // 检查士兵种类和攻击条件（不同的攻击逻辑适用于不同的士兵种类）
+                    if (hmTroop.troopType == TroopType.Archer && (dx <= 6 && dy == 0 || dx == 0 || dx + dy <= 2))
+                    {
+                        // 处理玩家连弩战术的情况并判断玩家弓箭手是否可以攻击到
+                        if (dx is >= 5 and <= 7 && dy == 0 && UIBattle.Instance.uiTactic.CheckTacticalState(3,true) && aix > cellX)
+                        {
+                            for (int i = 1; i < dx; i++)
+                            {
+                                if (BM.battleMap[cellY, cellX + i] == Byte.MinValue)
+                                {
+                                    willBeAtk = false;
+                                    break;
+                                }
+                                willBeAtk = true;
+                            }
+                        }
+
+                        // 处理正常的情况并判断玩家弓箭手是否可以攻击到
+                        if (dx is >= 1 and <= 4 && dy == 0 && aix > cellX)
+                        {
+                            if (aix > cellX + 1)
+                            {
+                                for (int i = 1; i < dx; i++)
+                                {
+                                    if (BM.battleMap[cellY, cellX + i] == Byte.MinValue)
+                                    {
+                                        willBeAtk = false;
+                                        break;
+                                    }
+                                    willBeAtk = true;
+                                }
+                            }
+                            else if (aix == cellX + 1)
+                            {
+                                willBeAtk = true;
+                            }
+                        }
+
+                        // 同在竖直方向上的判断
+                        if (dx == 0)
+                        {
+                            if (aiy > cellY + 1)
+                            {
+                                for (int i = 1; i < dy; i++)
+                                {
+                                    if (BM.battleMap[cellY + i, cellX] == Byte.MinValue)
+                                    {
+                                        willBeAtk = false;
+                                        break;
+                                    }
+                                    willBeAtk = true;
+                                }
+                            }
+                            else if (aiy < cellY - 1)
+                            {
+                                for (int i = 1; i < dy; i++)
+                                {
+                                    if (BM.battleMap[cellY - i, cellX] == Byte.MinValue)
+                                    {
+                                        willBeAtk = false;
+                                        break;
+                                    }
+                                    willBeAtk = true;
+                                }
+                            }
+                            else if (aiy == cellY + 1 || aiy == cellY - 1)
+                            {
+                                willBeAtk = true;
+                            }
+                        }
+                    }
+
+                    // 类似的逻辑用于不同种类的士兵
+                    else if (BM.GetTroopByXY(cellX, cellY)!=null && BM.GetTroopByXY(cellX, cellY).troopType == TroopType.Cavalry && dx + dy <= 2)
+                    {
+                        // 判断是否可以攻击的条件
+                        if (aiy == cellY && aix == cellX + 2 && BM.battleMap[aiy, aix - 1] != Byte.MinValue)
+                            willBeAtk = true;
+                        if (aiy == cellY && aix == cellX + 1)
+                            willBeAtk = true;
+                        if (aiy == cellY && aix == cellX - 2 && BM.battleMap[aiy, aix + 1] != Byte.MinValue)
+                            willBeAtk = true;
+                        if (aiy == cellY && aix == cellX + 1)
+                            willBeAtk = true;
+                        if (aix == cellX && aiy == cellY + 2 && BM.battleMap[aiy + 1, aix] != Byte.MinValue)
+                            willBeAtk = true;
+                        if (aix == cellX && aiy == cellY + 1)
+                            willBeAtk = true;
+                        if (aix == cellX && aiy == cellY - 2 && BM.battleMap[aiy - 1, aix] != Byte.MinValue)
+                            willBeAtk = true;
+                        if (aix == cellX && aiy == cellY - 1)
+                            willBeAtk = true;
+                    }
+
+                    // 如果可以攻击，计算攻击点数
+                    if (willBeAtk)
+                    {
+                        short blood = 1;
+                        short atk = 1;
+
+                        // 遍历己方士兵列表，找到对应的士兵并计算其攻击点数
+                        for (int hmindex = 0; hmindex < BM.hmTroops.Count; hmindex++)
+                        {
+                            if (BM.hmTroops[hmindex].health > 0 && BM.GetTroopByXY(cellX, cellY)!=null&& BM.GetTroopByXY(cellX, cellY) != null)
+                            {
+                                if (hmindex == 0)
+                                {
+                                    blood = 300;
+                                    //TODO BM.hmTroops[hmindex].InitPower();
+                                    atk = BM.hmTroops[hmindex].attackPower;
+                                    break;
+                                }
+                                blood = BM.hmTroops[hmindex].health;
+                                //BM.hmTroops[hmindex].InitPower();
+                                atk = BM.hmTroops[hmindex].attackPower;
+                                break;
+                            }
+                        }
+                        //BM.aiTroops[0].InitPower();
+                        canatkps = (short)(canatkps + BM.aiTroops[0].CalculateDamage(BM.hmTroops[0]));
+                    }
+                }
+            }
+            catch (IndexOutOfRangeException e)
+            {
+                canatkps = 50; // 捕获异常，设置默认攻击点数
+                Debug.LogError(e);
+            }
+
+            // 根据计算的攻击点数和当前AI将领的体力判断是否撤退
+            if ((canatkps > BM.aiGeneral.GetCurPhysical() - 35 && canatkps > 0) || BM.aiGeneral.GetCurPhysical() < 35 && pySoldierNum > 450 && aiSoldierNum < 100 && BM.aiTacticPoint < 12)
+                return true;
+
+            // 判断是否需要执行"可能被包围"策略
+            if (SurroundEarlyWarning(canatkps))
+                return true;
+
+            return false;
+        }
         bool AIGenBattleRetreat()
         {
             // 获取参与战斗的士兵数量，分别计算己方和敌方的数量
-            short pySoldierNum = GetBattleSoldierNum(true);  // 己方士兵数量
-            short aiSoldierNum = GetBattleSoldierNum(false); // 敌方士兵数量
+            short pySoldierNum = GetBattleSoldierNum(true);  // 玩家士兵数量
+            short aiSoldierNum = GetBattleSoldierNum(false); // AI士兵数量
 
-            // 获取己方士兵的初始坐标
+            // 获取己方将军的初始坐标
             byte aix = (byte)BM.aiTroops[0].arrayPos.x; // AI士兵的X坐标
             byte aiy = (byte)BM.aiTroops[0].arrayPos.y; // AI士兵的Y坐标
 
@@ -730,8 +896,7 @@ namespace Battle
                         {
                             byte dx = (byte)Math.Abs(aix - cellX); // X方向上的距离
                             byte dy = (byte)Math.Abs(aiy - cellY); // Y方向上的距离
-                            bool flag1 = false; // 判断是否可以攻击
-                            bool flag2 = false; // 未使用的标志位
+                            bool willBeAtk = false; // 判断是否遭受攻击
 
                             // 检查士兵种类和攻击条件（不同的攻击逻辑适用于不同的士兵种类）
                             if (BM.GetTroopByXY(cellX, cellY)!=null && BM.GetTroopByXY(cellX, cellY).troopType == TroopType.Archer && (dx <= 6 && dy == 0 || dx == 0 || dx + dy <= 2))
@@ -743,10 +908,10 @@ namespace Battle
                                     {
                                         if (BM.battleMap[cellY, cellX + i] == Byte.MinValue)
                                         {
-                                            flag1 = false;
+                                            willBeAtk = false;
                                             break;
                                         }
-                                        flag1 = true;
+                                        willBeAtk = true;
                                     }
                                 }
 
@@ -759,15 +924,15 @@ namespace Battle
                                         {
                                             if (BM.battleMap[cellY, cellX + i] == Byte.MinValue)
                                             {
-                                                flag1 = false;
+                                                willBeAtk = false;
                                                 break;
                                             }
-                                            flag1 = true;
+                                            willBeAtk = true;
                                         }
                                     }
                                     else if (aix == cellX + 1)
                                     {
-                                        flag1 = true;
+                                        willBeAtk = true;
                                     }
                                 }
 
@@ -780,10 +945,10 @@ namespace Battle
                                         {
                                             if (BM.battleMap[cellY + i, cellX] == Byte.MinValue)
                                             {
-                                                flag1 = false;
+                                                willBeAtk = false;
                                                 break;
                                             }
-                                            flag1 = true;
+                                            willBeAtk = true;
                                         }
                                     }
                                     else if (aiy < cellY - 1)
@@ -792,15 +957,15 @@ namespace Battle
                                         {
                                             if (BM.battleMap[cellY - i, cellX] == Byte.MinValue)
                                             {
-                                                flag1 = false;
+                                                willBeAtk = false;
                                                 break;
                                             }
-                                            flag1 = true;
+                                            willBeAtk = true;
                                         }
                                     }
                                     else if (aiy == cellY + 1 || aiy == cellY - 1)
                                     {
-                                        flag1 = true;
+                                        willBeAtk = true;
                                     }
                                 }
                             }
@@ -810,25 +975,25 @@ namespace Battle
                             {
                                 // 判断是否可以攻击的条件
                                 if (aiy == cellY && aix == cellX + 2 && BM.battleMap[aiy, aix - 1] != Byte.MinValue)
-                                    flag1 = true;
+                                    willBeAtk = true;
                                 if (aiy == cellY && aix == cellX + 1)
-                                    flag1 = true;
+                                    willBeAtk = true;
                                 if (aiy == cellY && aix == cellX - 2 && BM.battleMap[aiy, aix + 1] != Byte.MinValue)
-                                    flag1 = true;
+                                    willBeAtk = true;
                                 if (aiy == cellY && aix == cellX + 1)
-                                    flag1 = true;
+                                    willBeAtk = true;
                                 if (aix == cellX && aiy == cellY + 2 && BM.battleMap[aiy + 1, aix] != Byte.MinValue)
-                                    flag1 = true;
+                                    willBeAtk = true;
                                 if (aix == cellX && aiy == cellY + 1)
-                                    flag1 = true;
+                                    willBeAtk = true;
                                 if (aix == cellX && aiy == cellY - 2 && BM.battleMap[aiy - 1, aix] != Byte.MinValue)
-                                    flag1 = true;
+                                    willBeAtk = true;
                                 if (aix == cellX && aiy == cellY - 1)
-                                    flag1 = true;
+                                    willBeAtk = true;
                             }
 
                             // 如果可以攻击，计算攻击点数
-                            if (flag1)
+                            if (willBeAtk)
                             {
                                 short blood = 1;
                                 short atk = 1;
