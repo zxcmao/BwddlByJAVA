@@ -1,0 +1,322 @@
+[
+  {
+    "weaponId": 0,
+    "weaponName": "短剑",
+    "weaponPrice": 100,
+    "weaponProperties": 5,
+    "weaponWeight": 2,
+    "weaponType": 0,
+    "weaponUnique": false,
+    "smithy": 57
+  },
+  {
+    "weaponId": 1,
+    "weaponName": "飞剑",
+    "weaponPrice": 800,
+    "weaponProperties": 10,
+    "weaponWeight": 5,
+    "weaponType": 0,
+    "weaponUnique": false,
+    "smithy": 127
+  },
+  {
+    "weaponId": 2,
+    "weaponName": "长剑",
+    "weaponPrice": 1200,
+    "weaponProperties": 25,
+    "weaponWeight": 8,
+    "weaponType": 0,
+    "weaponUnique": false,
+    "smithy": 127
+  },
+  {
+    "weaponId": 3,
+    "weaponName": "破斩剑",
+    "weaponPrice": 1800,
+    "weaponProperties": 30,
+    "weaponWeight": 9,
+    "weaponType": 0,
+    "weaponUnique": false,
+    "smithy": 127
+  },
+  {
+    "weaponId": 4,
+    "weaponName": "尚方剑",
+    "weaponPrice": 5000,
+    "weaponProperties": 45,
+    "weaponWeight": 12,
+    "weaponType": 0,
+    "weaponUnique": false,
+    "smithy": 70
+  },
+  {
+    "weaponId": 5,
+    "weaponName": "七星剑",
+    "weaponPrice": 0,
+    "weaponProperties": 75,
+    "weaponWeight": 4,
+    "weaponType": 0,
+    "weaponUnique": true,
+    "smithy": 0
+  },
+  {
+    "weaponId": 6,
+    "weaponName": "青釭剑",
+    "weaponPrice": 0,
+    "weaponProperties": 85,
+    "weaponWeight": 4,
+    "weaponType": 0,
+    "weaponUnique": true,
+    "smithy": 0
+  },
+  {
+    "weaponId": 7,
+    "weaponName": "倚天剑",
+    "weaponPrice": 0,
+    "weaponProperties": 95,
+    "weaponWeight": 6,
+    "weaponType": 0,
+    "weaponUnique": true,
+    "smithy": 0
+  },
+  {
+    "weaponId": 8,
+    "weaponName": "环首刀",
+    "weaponPrice": 500,
+    "weaponProperties": 20,
+    "weaponWeight": 10,
+    "weaponType": 1,
+    "weaponUnique": false,
+    "smithy": 57
+  },
+  {
+    "weaponId": 9,
+    "weaponName": "眉尖刀",
+    "weaponPrice": 1000,
+    "weaponProperties": 30,
+    "weaponWeight": 12,
+    "weaponType": 1,
+    "weaponUnique": false,
+    "smithy": 57
+  },
+  {
+    "weaponId": 10,
+    "weaponName": "铁鞭",
+    "weaponPrice": 1500,
+    "weaponProperties": 40,
+    "weaponWeight": 15,
+    "weaponType": 1,
+    "weaponUnique": false,
+    "smithy": 127
+  },
+  {
+    "weaponId": 11,
+    "weaponName": "三尖刀",
+    "weaponPrice": 2000,
+    "weaponProperties": 50,
+    "weaponWeight": 13,
+    "weaponType": 1,
+    "weaponUnique": false,
+    "smithy": 111
+  },
+  {
+    "weaponId": 12,
+    "weaponName": "双锏",
+    "weaponPrice": 3500,
+    "weaponProperties": 55,
+    "weaponWeight": 14,
+    "weaponType": 1,
+    "weaponUnique": false,
+    "smithy": 70
+  },
+  {
+    "weaponId": 13,
+    "weaponName": "流星锤",
+    "weaponPrice": 4000,
+    "weaponProperties": 55,
+    "weaponWeight": 15,
+    "weaponType": 1,
+    "weaponUnique": false,
+    "smithy": 70
+  },
+  {
+    "weaponId": 14,
+    "weaponName": "龙牙刀",
+    "weaponPrice": 0,
+    "weaponProperties": 110,
+    "weaponWeight": 10,
+    "weaponType": 1,
+    "weaponUnique": true,
+    "smithy": 0
+  },
+  {
+    "weaponId": 15,
+    "weaponName": "青龙偃月刀",
+    "weaponPrice": 9900,
+    "weaponProperties": 125,
+    "weaponWeight": 20,
+    "weaponType": 1,
+    "weaponUnique": true,
+    "smithy": 16
+  },
+  {
+    "weaponId": 16,
+    "weaponName": "长矛",
+    "weaponPrice": 500,
+    "weaponProperties": 20,
+    "weaponWeight": 8,
+    "weaponType": 2,
+    "weaponUnique": false,
+    "smithy": 9
+  },
+  {
+    "weaponId": 17,
+    "weaponName": "双戟",
+    "weaponPrice": 1200,
+    "weaponProperties": 35,
+    "weaponWeight": 13,
+    "weaponType": 2,
+    "weaponUnique": false,
+    "smithy": 63
+  },
+  {
+    "weaponId": 18,
+    "weaponName": "单钩枪",
+    "weaponPrice": 1800,
+    "weaponProperties": 35,
+    "weaponWeight": 10,
+    "weaponType": 2,
+    "weaponUnique": false,
+    "smithy": 127
+  },
+  {
+    "weaponId": 19,
+    "weaponName": "战斧",
+    "weaponPrice": 2200,
+    "weaponProperties": 45,
+    "weaponWeight": 18,
+    "weaponType": 2,
+    "weaponUnique": false,
+    "smithy": 123
+  },
+  {
+    "weaponId": 20,
+    "weaponName": "红缨枪",
+    "weaponPrice": 4000,
+    "weaponProperties": 75,
+    "weaponWeight": 15,
+    "weaponType": 2,
+    "weaponUnique": false,
+    "smithy": 86
+  },
+  {
+    "weaponId": 21,
+    "weaponName": "方天画戟",
+    "weaponPrice": 4500,
+    "weaponProperties": 125,
+    "weaponWeight": 17,
+    "weaponType": 2,
+    "weaponUnique": true,
+    "smithy": 64
+  },
+  {
+    "weaponId": 22,
+    "weaponName": "龙吟枪",
+    "weaponPrice": 5000,
+    "weaponProperties": 100,
+    "weaponWeight": 16,
+    "weaponType": 2,
+    "weaponUnique": true,
+    "smithy": 32
+  },
+  {
+    "weaponId": 23,
+    "weaponName": "丈八蛇矛",
+    "weaponPrice": 9900,
+    "weaponProperties": 120,
+    "weaponWeight": 15,
+    "weaponType": 2,
+    "weaponUnique": true,
+    "smithy": 8
+  },
+  {
+    "weaponId": 24,
+    "weaponName": "纶巾",
+    "weaponPrice": 100,
+    "weaponProperties": 5,
+    "weaponWeight": 1,
+    "weaponType": 3,
+    "weaponUnique": false,
+    "smithy": 41
+  },
+  {
+    "weaponId": 25,
+    "weaponName": "笼手",
+    "weaponPrice": 800,
+    "weaponProperties": 20,
+    "weaponWeight": 4,
+    "weaponType": 3,
+    "weaponUnique": false,
+    "smithy": 57
+  },
+  {
+    "weaponId": 26,
+    "weaponName": "皮甲",
+    "weaponPrice": 1500,
+    "weaponProperties": 25,
+    "weaponWeight": 5,
+    "weaponType": 3,
+    "weaponUnique": false,
+    "smithy": 127
+  },
+  {
+    "weaponId": 27,
+    "weaponName": "鱼鳞甲",
+    "weaponPrice": 2500,
+    "weaponProperties": 35,
+    "weaponWeight": 7,
+    "weaponType": 3,
+    "weaponUnique": false,
+    "smithy": 127
+  },
+  {
+    "weaponId": 28,
+    "weaponName": "鹤氅",
+    "weaponPrice": 3500,
+    "weaponProperties": 45,
+    "weaponWeight": 3,
+    "weaponType": 3,
+    "weaponUnique": false,
+    "smithy": 86
+  },
+  {
+    "weaponId": 29,
+    "weaponName": "甲胄",
+    "weaponPrice": 4500,
+    "weaponProperties": 60,
+    "weaponWeight": 10,
+    "weaponType": 3,
+    "weaponUnique": false,
+    "smithy": 66
+  },
+  {
+    "weaponId": 30,
+    "weaponName": "传国玉玺",
+    "weaponPrice": 9900,
+    "weaponProperties": 120,
+    "weaponWeight": 3,
+    "weaponType": 3,
+    "weaponUnique": true,
+    "smithy": 4
+  },
+  {
+    "weaponId": 31,
+    "weaponName": "龙鳞宝铠",
+    "weaponPrice": 0,
+    "weaponProperties": 80,
+    "weaponWeight": 4,
+    "weaponType": 3,
+    "weaponUnique": true,
+    "smithy": 0
+  }
+]

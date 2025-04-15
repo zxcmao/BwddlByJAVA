@@ -1,0 +1,42 @@
+[
+  {
+    "generalId": 10000,
+    "generalName": "新人",
+    "lead": 87,
+    "political": 26,
+    "phase": 53,
+    "isOffice": 0,
+    "level": 1,
+    "army[]": "AgID",
+    "force": 66,
+    "generalSoldier": 0,
+    "maxAttributeValue": 120,
+    "moral": 34,
+    "curPhysical": 100,
+    "maxPhysical": 100,
+    "IQ": 85,
+    "debutYears": 189,
+    "loyalty": 99,
+    "debutCity": 0,
+    "followGeneralId": 0,
+    "experience": 0,
+    "weapon": 1,
+    "armor": 1,
+    "skills[]": [
+      33,
+      4,
+      256,
+      2,
+      258
+    ],
+    "leadExp": 0,
+    "forceExp": 0,
+    "IQExp": 0,
+    "moralExp": 0,
+    "politicalExp": 0,
+    "haveMoney": 0,
+    "IsDie": false,
+    "profile": "",
+    "maxSoldiers": 2054
+  }
+]

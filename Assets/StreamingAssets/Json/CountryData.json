@@ -1,0 +1,266 @@
+[
+  {
+    "countryId": 1,
+    "countryKingId": 61,
+    "countryColor": "#214AE7",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      354,
+      457,
+      516,
+      526
+    ]
+  },
+  {
+    "countryId": 2,
+    "countryKingId": 25,
+    "countryColor": "#6E7F80",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      155
+    ]
+  },
+  {
+    "countryId": 3,
+    "countryKingId": 30,
+    "countryColor": "#00CC99",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      301,
+      245,
+      267
+    ]
+  },
+  {
+    "countryId": 4,
+    "countryKingId": 39,
+    "countryColor": "#CAEABB",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      96,
+      118,
+      275
+    ]
+  },
+  {
+    "countryId": 5,
+    "countryKingId": 7,
+    "countryColor": "#21BCE7",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      408,
+      254,
+      194
+    ]
+  },
+  {
+    "countryId": 6,
+    "countryKingId": 10,
+    "countryColor": "#006A4E",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      171
+    ]
+  },
+  {
+    "countryId": 7,
+    "countryKingId": 44,
+    "countryColor": "#8DE721",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      66
+    ]
+  },
+  {
+    "countryId": 8,
+    "countryKingId": 40,
+    "countryColor": "#FFA500",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      141,
+      332
+    ]
+  },
+  {
+    "countryId": 9,
+    "countryKingId": 4,
+    "countryColor": "#FFFF00",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      466,
+      524
+    ]
+  },
+  {
+    "countryId": 10,
+    "countryKingId": 1,
+    "countryColor": "#0095B6",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      273,
+      298,
+      304
+    ]
+  },
+  {
+    "countryId": 11,
+    "countryKingId": 3,
+    "countryColor": "#FBCCE7",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      22
+    ]
+  },
+  {
+    "countryId": 12,
+    "countryKingId": 36,
+    "countryColor": "#C2B280",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      11
+    ]
+  },
+  {
+    "countryId": 13,
+    "countryKingId": 60,
+    "countryColor": "#FF7363",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      288,
+      148
+    ]
+  },
+  {
+    "countryId": 14,
+    "countryKingId": 69,
+    "countryColor": "#FF00FF",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      320,
+      528,
+      521,
+      527
+    ]
+  },
+  {
+    "countryId": 15,
+    "countryKingId": 83,
+    "countryColor": "#9C21E7",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      64,
+      140
+    ]
+  },
+  {
+    "countryId": 16,
+    "countryKingId": 65,
+    "countryColor": "#704214",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      84
+    ]
+  },
+  {
+    "countryId": 17,
+    "countryKingId": 24,
+    "countryColor": "#AD0808",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      123
+    ]
+  },
+  {
+    "countryId": 18,
+    "countryKingId": 34,
+    "countryColor": "#873260",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      72
+    ]
+  },
+  {
+    "countryId": 19,
+    "countryKingId": 530,
+    "countryColor": "#986960",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      531
+    ]
+  },
+  {
+    "countryId": 20,
+    "countryKingId": 28,
+    "countryColor": "#5D8AA8",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      244,
+      256,
+      460
+    ]
+  },
+  {
+    "countryId": 21,
+    "countryKingId": 26,
+    "countryColor": "#F75394",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      48
+    ]
+  },
+  {
+    "countryId": 22,
+    "countryKingId": 9,
+    "countryColor": "#FFA089",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      47
+    ]
+  },
+  {
+    "countryId": 23,
+    "countryKingId": 538,
+    "countryColor": "#9ACD32",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      153
+    ]
+  },
+  {
+    "countryId": 24,
+    "countryKingId": 539,
+    "countryColor": "#F3E5AB",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      541
+    ]
+  },
+  {
+    "countryId": 25,
+    "countryKingId": 537,
+    "countryColor": "#8878C3",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      543
+    ]
+  },
+  {
+    "countryId": 26,
+    "countryKingId": 540,
+    "countryColor": "#A0D6B4",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      547
+    ]
+  },
+  {
+    "countryId": 27,
+    "countryKingId": 342,
+    "countryColor": "#AB4E52",
+    "canBeChoose": true,
+    "inheritGeneralIds[]": [
+      365,
+      178
+    ]
+  }
+]
