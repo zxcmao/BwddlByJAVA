@@ -28,27 +28,6 @@ public class UIEnd : MonoBehaviour
 
     private void Start()
     {
-        if (GameInfo.PlayingState == GameState.GameOver)
-        {
-            GameFail();
-        }
-        else if (GameInfo.PlayingState == GameState.GameSuccess)
-        {
-            GameWin();
-        }
-    }
-
-    public void GameFail()
-    {
-        eventImage.sprite = Resources.Load<Sprite>("Event/GameOver");
-        resultImage.sprite = Resources.Load<Sprite>("UI/Fail");
-        _resultText = TextLibrary.gameFail;
-        confirmButton.gameObject.SetActive(true);
-        confirmButton.onClick.RemoveAllListeners();
-        confirmButton.onClick.AddListener(() => { SceneManager.LoadScene("StartScene"); });
-    }
-    public void GameWin()
-    {
         _cities = CityListCache.cityDictionary;
         _cityCount = _cities.Count; // 存储计数，避免重复调用
         foreach (var city in _cities)
@@ -58,6 +37,29 @@ public class UIEnd : MonoBehaviour
             _generals.AddRange(generals);
         }
         CalculateTotalScore(); 
+        if (GameInfo.PlayingState == GameState.GameOver)
+        {
+            GameFail();
+        }
+        else if (GameInfo.PlayingState == GameState.GameWin)
+        {
+            GameWin();
+        }
+        confirmButton.gameObject.SetActive(false);
+        confirmButton.onClick.RemoveAllListeners();
+    }
+
+    private void GameFail()
+    {
+        eventImage.sprite = Resources.Load<Sprite>("Event/GameOver");
+        resultImage.sprite = Resources.Load<Sprite>("UI/Fail");
+        _resultText += TextLibrary.gameFail;
+    }
+
+    private void GameWin()
+    {
+        eventImage.sprite = Resources.Load<Sprite>("Event/GameWin");
+        resultImage.sprite = Resources.Load<Sprite>("UI/Win");
     }
 
     
@@ -126,7 +128,7 @@ public class UIEnd : MonoBehaviour
         {
             foreach (var pair in _cities)
             {
-                agro += pair.Value.agro;
+                agro += pair.Value.GetAgro();
             }
 
             agro /= _cityCount; // 计算平均值
@@ -141,7 +143,7 @@ public class UIEnd : MonoBehaviour
         {
             foreach (var pair in _cities)
             {
-                trade += pair.Value.trade;
+                trade += pair.Value.GetTrade();
             }
 
             trade /= _cityCount; // 计算平均值
@@ -156,7 +158,7 @@ public class UIEnd : MonoBehaviour
         {
             foreach (var pair in _cities)
             {
-                floodControl += pair.Value.floodControl;
+                floodControl += pair.Value.GetFloodControl();
             }
 
             floodControl /= _cityCount; // 计算平均值
@@ -194,7 +196,7 @@ public class UIEnd : MonoBehaviour
         {
             foreach (var pair in _cities)
             {
-                population += pair.Value.population;
+                population += pair.Value.GetPopulation();
             }
 
             population /= _cityCount; // 计算平均值
@@ -237,7 +239,7 @@ public class UIEnd : MonoBehaviour
         {
             foreach (var pair in _cities)
             {
-                rule += pair.Value.rule;
+                rule += pair.Value.GetRule();
             }
 
             rule /= _cityCount; // 计算平均值
@@ -281,7 +283,7 @@ public class UIEnd : MonoBehaviour
             foreach (var id in _generals)
             {
                 General general = GeneralListCache.GetGeneral(id);
-                soldier += general.generalSoldier;
+                soldier += general.soldiers;
             }
             soldier /= _generalCount;
         }
@@ -416,7 +418,7 @@ public class UIEnd : MonoBehaviour
             foreach (var id in _generals)
             {
                 General general = GeneralListCache.GetGeneral(id);
-                iq += general.IQ;
+                iq += general.wisdom;
             }
             iq /= _generalCount;
         }
@@ -451,7 +453,7 @@ public class UIEnd : MonoBehaviour
             foreach (var id in _generals)
             {
                 General general = GeneralListCache.GetGeneral(id);
-                switch(general.weapon)
+                switch(general.arm)
                 {
                     case 15: // '\017'
                     case 23: // '\027'

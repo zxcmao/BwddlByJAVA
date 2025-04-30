@@ -29,7 +29,7 @@ namespace TurnClass.AITurnStateMachine
         {
             _country = CountryListCache.GetCountryByCountryId(countryId);
             _usedOrderNum = 0;
-            _orderNum = CountryListCache.GetAIOredrNum(countryId);
+            _orderNum = CountryListCache.GetAIOrderNum(countryId);
             _warCount = 2;
             _curCity = null;
             _curGeneral = null;
@@ -72,7 +72,7 @@ namespace TurnClass.AITurnStateMachine
                 byte[] connectCityId = city.connectCityId;
 
                 // 遍历连接的城市
-                if (connectCityId.Select(t => CityListCache.GetCityByCityId(t).cityBelongKing)
+                if (connectCityId.Select(t => CityListCache.GetCityByCityId(t).ownerID)
                     .Select(CountryListCache.GetCountryByKingId)
                     .Any(otherCountry => otherCountry != null && otherCountry.countryId == GameInfo.playerCountryId))
                 {
@@ -146,18 +146,20 @@ namespace TurnClass.AITurnStateMachine
         }
 
         //AI执行内政操作
-        public byte AiInterior()
+        public byte AiInterior(out byte cityId)
         {
             Debug.Log($"{_country.KingName()}正在治理城池");
             // 随机选择一个城市进行内政计算
-            byte cityId = _country.cityIDs[Random.Range(0, _country.cityIDs.Count)];
+            cityId = _country.cityIDs[Random.Range(0, _country.cityIDs.Count)];
             _curCity = CityListCache.GetCityByCityId(cityId);
+            
             if (_curCity.GetMoney() < 100) return 7;
+            
             List<byte> interiorList = new List<byte>();
-            if (_curCity.floodControl < 99) interiorList.Add(0);
-            if (_curCity.agro < 999) interiorList.Add(1);
-            if (_curCity.trade < 999) interiorList.Add(2);
-            if (_curCity.population < 990000)
+            if (_curCity.GetFloodControl() < 99) interiorList.Add(0);
+            if (_curCity.GetAgro() < 999) interiorList.Add(1);
+            if (_curCity.GetTrade() < 999) interiorList.Add(2);
+            if (_curCity.GetPopulation() < 990000)
             {
                 interiorList.Add(3);
                 interiorList.Add(4);
@@ -176,80 +178,16 @@ namespace TurnClass.AITurnStateMachine
         }
         
         /// <summary>
-        /// AI获取城市中智力和政治综合能力最高的将领
-        /// </summary>
-        /// <returns></returns>
-        General AiFindExecutiveOfficer()
-        {
-            short[] officerIds = _curCity.GetOfficerIds();
-            int bestScore = 0;
-            General best = GeneralListCache.GetGeneral(_curCity.prefectId);
-            foreach (var id in officerIds)
-            {
-                General general = GeneralListCache.GetGeneral(id);
-                int score = general.IQ + general.political * 2;
-                if (general.HasSkill(3, 2) || general.HasSkill(3, 3))
-                {   // 如果将领具备特技屯田商才，能力值加强
-                    score = (int)(score * 1.33f);
-                }
-                else if (general.HasSkill(3, 0))
-                {   // 如果将领具备特技王佐
-                    score = (int)(score * 1.25f);
-                }
-
-                if (score > bestScore)
-                {
-                    bestScore = score;
-                    best = general;
-                }
-            }
-            return best;
-        }
-
-        // AI获取最佳治理将领
-        static General AIFindFriendlyOfficer(City city)
-        {
-            short[] officerIds = city.GetOfficerIds();
-            int bestScore = 0;
-            General best = GeneralListCache.GetGeneral(city.prefectId);
-            foreach (var id in officerIds)
-            {
-                General general = GeneralListCache.GetGeneral(id);
-                int score = general.IQ + general.political * 2 + general.moral * 2;
-                if (general.HasSkill(3, 1))
-                {   // 如果将领具备特技仁政，能力值加强
-                    score = (int)(score * 1.33f);
-                }
-                else if (general.HasSkill(3, 0))
-                {   // 如果将领具备特技王佐
-                    score = (int)(score * 1.25f);
-                }
-
-                if (score > bestScore)
-                {
-                    bestScore = score;
-                    best = general;
-                }
-            }
-            return best;
-        }
-
-
-
-
-
-
-        /// <summary>
         /// 自动重建AI灾后所有城市的内政
         /// </summary>
-        public void AIRebuildCity()
+        public static void AIRebuildCity()
         {
             foreach (var city in CityListCache.cityDictionary.Values)
             {
                 // 如果城市的君主ID大于0且不属于玩家势力的君主
-                if (city.cityBelongKing > 0 && city.cityBelongKing != (CountryListCache.GetCountryByCountryId(GameInfo.playerCountryId)).countryKingId)
+                if (city.ownerID > 0 && city.ownerID != (CountryListCache.GetCountryByCountryId(GameInfo.playerCountryId)).countryKingId)
                 {
-                    byte cityNum = CountryListCache.GetCountryByKingId(city.cityBelongKing).GetHaveCityNum();
+                    byte cityNum = CountryListCache.GetCountryByKingId(city.ownerID).GetHaveCityNum();
 
                     // 如果当前势力的城市数量小于等于10
                     if (cityNum <= 10)
@@ -303,10 +241,10 @@ namespace TurnClass.AITurnStateMachine
                         foreach (var id in officerIds)
                         {
                             General general = GeneralListCache.GetGeneral(id);
-                            if (general.GetCurPhysical() < general.maxPhysical)
+                            if (general.GetHP() < general.maxHealth)
                             {
-                                byte addPhysical = (byte)(general.maxPhysical - general.GetCurPhysical());
-                                general.AddCurPhysical(addPhysical);
+                                byte addPhysical = (byte)(general.maxHealth - general.GetHP());
+                                general.AddHP(addPhysical);
                             }
                         }
                     }
@@ -314,12 +252,12 @@ namespace TurnClass.AITurnStateMachine
                     // 如果城市的资金大于等于30
                     if (city.GetMoney() >= 30)
                     {
-                        General general = AiFindExecutiveOfficer(); // 获取将军ID
+                        General general = city.GetDoReclaimMercantileOfficer(); // 获取将军ID
                         // 如果城市的防洪控制小于99，则调用AiTameOrder方法
-                        if (city.floodControl < 99)
+                        if (city.GetFloodControl() < 99)
                         {
-                            var useGlod = general.GetNeedMoneyOfInterior(TaskType.Tame);
-                            city.Reclaim(general, useGlod);
+                            var useGold = general.GetNeedMoneyOfInterior(TaskType.Tame);
+                            city.Reclaim(general, useGold);
                         }
 
                         // 如果城市的资金仍然大于等于30
@@ -356,13 +294,13 @@ namespace TurnClass.AITurnStateMachine
         /// <summary>
         /// 自动对AI所有城市进行内政处理
         /// </summary>
-        public void AutoInteriorAllCity()
+        public static void AutoInteriorAllCity()
         {
             foreach (var city in CityListCache.cityDictionary.Values)
             {
-                if (city.cityBelongKing > 0 && city.cityBelongKing != (CountryListCache.GetCountryByCountryId(GameInfo.playerCountryId)).countryKingId)
+                if (city.ownerID > 0 && city.ownerID != (CountryListCache.GetCountryByCountryId(GameInfo.playerCountryId)).countryKingId)
                 {
-                    byte cityNum = CountryListCache.GetCountryByKingId(city.cityBelongKing).GetHaveCityNum();
+                    byte cityNum = CountryListCache.GetCountryByKingId(city.ownerID).GetHaveCityNum();
                     if (cityNum is > 0 and <= 6)
                     {
                         if (city.GetMoney() < 600)
@@ -403,19 +341,19 @@ namespace TurnClass.AITurnStateMachine
                         foreach (var id in officerIds)
                         {
                             General general = GeneralListCache.GetGeneral(id);
-                            if (general.GetCurPhysical() < general.maxPhysical)
+                            if (general.GetHP() < general.maxHealth)
                             {
-                                byte addPhysical = (byte)(general.maxPhysical- general.GetCurPhysical());
-                                general.AddCurPhysical(addPhysical);
+                                byte addPhysical = (byte)(general.maxHealth- general.GetHP());
+                                general.AddHP(addPhysical);
                             }
                         }
 
                     if (city.GetMoney() >= 30)
                     {
-                        General general = AiFindExecutiveOfficer(); // 获取将军ID
+                        General general = city.GetDoReclaimMercantileOfficer(); // 获取将军ID
                         // 如果城市的防洪控制小于99，则调用AiTameOrder方法
-                        if (city.floodControl < 99)
-                            AiReclaimOrder();
+                        if (city.GetFloodControl() < 99)
+                            AiTameOrder(city);
                         if (city.GetMoney() >= 30)
                             if (cityNum > 6)
                             {
@@ -446,112 +384,113 @@ namespace TurnClass.AITurnStateMachine
         /// <summary>
         /// AI自动选择内政策略
         /// </summary>
-        void AutoInteriorLogic(City city)
+        static void AutoInteriorLogic(City city)
         {
-            General general = AiFindExecutiveOfficer();
             // 优先进行治水
-            if (city.floodControl < 99)
+            if (city.GetFloodControl() < 99)
             {
-                AiTameOrder();
+                AiTameOrder(city);
                 return;
             }
 
             // 决定优先发展农业或贸易
             if (Random.Range(0, 3) > 1)
             {
-                if (city.agro < 999 && city.trade < 999)
+                if (city.GetAgro() < 999 && city.GetTrade() < 999)
                 {
                     if (GameInfo.month < 4 || GameInfo.month >= 10)
                     {
-                        AiMercantileOrder();
+                        AiMercantileOrder(city);
                     }
                     else
                     {
-                        AiReclaimOrder();
+                        AiReclaimOrder(city);
                     }
                     return;
                 }
-                if (city.agro < 999)
+                if (city.GetAgro() < 999)
                 {
-                    AiReclaimOrder();
+                    AiReclaimOrder(city);
                     return;
                 }
-                if (city.trade < 999)
+                if (city.GetTrade() < 999)
                 {
-                    AiMercantileOrder();
+                    AiMercantileOrder(city);
                     return;
                 }
             }
 
             // 人口未达上限则优先发展人口
-            if (city.population < 990000)
+            if (city.GetPopulation() < 990000)
             {
-                general = AIFindFriendlyOfficer(city);
-                AiPatrolOrder();
+                AiPatrolOrder(city);
                 return;
             }
 
             // 否则继续治水
-            AiTameOrder();
+            AiTameOrder(city);
         }
 
         /// <summary>
         /// AI内政开垦查操作
         /// </summary>
-        public void AiReclaimOrder()
+        public static void AiReclaimOrder(City city)
         {
-            _curGeneral = AiFindExecutiveOfficer();
-            int needMoney = _curGeneral.GetNeedMoneyOfInterior(TaskType.Reclaim); // 获取内政开垦需要的金钱
-            _curCity.Reclaim(_curGeneral, needMoney);  // 执行相关操作
+            General general = city.GetDoReclaimMercantileOfficer();
+            int needMoney = general.GetNeedMoneyOfInterior(TaskType.Reclaim); // 获取内政开垦需要的金钱
+            city.Reclaim(general, needMoney);  // 执行相关操作
         }
 
         /// <summary>
         /// AI内政劝商操作
         /// </summary>
-        public void AiMercantileOrder()
+        public static void AiMercantileOrder(City city)
         {
-            _curGeneral = AiFindExecutiveOfficer();
-            int needMoney = _curGeneral.GetNeedMoneyOfInterior(TaskType.Mercantile);  // 获取内政劝商需要的金钱
-            _curCity.Mercantile(_curGeneral, needMoney);  // 执行相关操作
+            General general = city.GetDoReclaimMercantileOfficer();
+            int needMoney = general.GetNeedMoneyOfInterior(TaskType.Mercantile);  // 获取内政劝商需要的金钱
+            city.Mercantile(general, needMoney);  // 执行相关操作
         }
 
         /// <summary>
         /// AI内政治水操作
         /// </summary>
-        /// <param name="city"></param>
-        public void AiTameOrder()
+        /// <param name="city">城池对象</param>
+        public static void AiTameOrder(City city)
         {
-            _curGeneral = AiFindExecutiveOfficer();
-            int needMoney = _curGeneral.GetNeedMoneyOfInterior(TaskType.Tame);  // 获取内政治水需要的金钱
-            _curCity.Tame(_curGeneral, needMoney);  // 执行相关操作
+            General general = city.GetDoReclaimMercantileOfficer();
+            int needMoney = general.GetNeedMoneyOfInterior(TaskType.Tame);  // 获取内政治水需要的金钱
+            city.Tame(general, needMoney);  // 执行相关操作
         }
 
         /// <summary>
         /// Ai内政巡查操作
         /// </summary>
-        public void AiPatrolOrder()
+        /// <param name="city">城池对象</param>
+        /// <returns></returns>
+        public static void AiPatrolOrder(City city)
         {
-            _curGeneral = AiFindExecutiveOfficer();
-            int needMoney = _curGeneral.GetNeedMoneyOfInterior(TaskType.Patrol);  // 获取内政巡查需要的金钱
-            _curCity.Patrol(_curGeneral, needMoney);  // 执行相关操作
+            General general = city.GetDoPatrolOfficer();
+            int needMoney = general.GetNeedMoneyOfInterior(TaskType.Patrol);  // 获取内政巡查需要的金钱
+            city.Patrol(general, needMoney);  // 执行相关操作
         }
 
         /// <summary>
-        /// Ai判断笼络操作
+        /// AI选择挖角或离间操作
         /// </summary>
         /// <returns></returns>
-        public bool AiJudgeBribe(out short doGenId, out short beGenId, out byte beCityId, out byte doCityId)
+        public byte AIPoachOrAlienate(out string result)
         {
-            doGenId = 0;
-            beGenId = 0;
-            beCityId = 0;
-            doCityId = 0;
+            General doGen = null;
+            General beGen = null;
+            City beCity = null;
+            City doCity = null;
             int val = 0;
+            result = String.Empty;
             
             // 遍历所有城市
             foreach (var otherCity in CityListCache.cityDictionary.Values)
             {
-                if (otherCity.cityBelongKing != _country.countryKingId)  // 判断是否为敌方城市
+                if (otherCity.ownerID != _country.countryKingId)  // 判断是否为敌方城市
                 {
                     short[] otherOfficerIds = otherCity.GetOfficerIds();
 
@@ -563,23 +502,24 @@ namespace TurnClass.AITurnStateMachine
                         {
                             short[] ownOfficerIds = ownCity.GetOfficerIds();
 
-                            foreach (var id in ownOfficerIds)
+                            foreach (var id in ownOfficerIds) // 遍历我方城市中的所有将领
                             {
-                                foreach (var otherId in otherOfficerIds)
+                                General general = GeneralListCache.GetGeneral(id);
+                                foreach (var otherId in otherOfficerIds) // 遍历敌方城市中的所有将领
                                 {
-                                    int per = AiBribeProbability(id, otherId);  // 计算招揽成功率
+                                    General otherGeneral = GeneralListCache.GetGeneral(otherId);
+                                    int per = AIPoachProbability(general, otherGeneral);  // 计算招揽成功率
 
                                     if (per > 0)
                                     {
-                                        General otherGeneral = GeneralListCache.GetGeneral(otherId);
-                                        int curval = (otherGeneral.lead * 3 + otherGeneral.force + otherGeneral.IQ) * per;
+                                        int curval = (otherGeneral.lead * 3 + otherGeneral.force + otherGeneral.wisdom) * per;
 
                                         if (curval > val)
                                         {
-                                            beGenId = otherId;
-                                            doGenId = id;
-                                            beCityId = otherCity.cityId;
-                                            doCityId = cityId;
+                                            beGen = otherGeneral;
+                                            doGen = general;
+                                            beCity = otherCity;
+                                            doCity = ownCity;
                                             val = curval;
                                         }
                                     }
@@ -591,49 +531,58 @@ namespace TurnClass.AITurnStateMachine
             }
             
             // 执行招揽操作
-            if (beGenId != 0 && doCityId != 0 && doGenId != 0)
+            if (beGen != null && doGen != null && beCity != null && doCity != null)
             {
-                if (GeneralListCache.IsBribe(doCityId, beCityId, doGenId, beGenId))  // 判断招揽成功
+                if (GeneralListCache.IsBribe(doCity.cityID, beCity.cityID, doGen.generalId, beGen.generalId))  // 判断招揽成功
                 {
-                    return true;
+                    if (beCity.ownerID == CountryListCache.GetCountryByCountryId(GameInfo.playerCountryId).countryKingId)
+                    {
+                        result = $"主公！{beGen.generalName}阴怀异志,已投至{_country.KingName()}麾下";
+                        return 1;
+                    }
+                    return 0;
                 }
+                GeneralListCache.IsAlienate(doGen.generalId, beGen.generalId);  // 执行离间操作
+                if (beCity.ownerID == CountryListCache.GetCountryByCountryId(GameInfo.playerCountryId).countryKingId)
+                {
+                    result = $"主公！{beGen.generalName}私下密会{doGen.generalName},恐生异心！";
+                    return 2;
+                }
+                return 0;
             }
-            return false;
+            return 0;
         }
 
         /// <summary>
         /// AI计算笼络将领的概率
         /// </summary>
-        /// <param name="doGenId"></param>
-        /// <param name="beGenId"></param>
+        /// <param name="doGeneral"></param>
+        /// <param name="beGeneral"></param>
         /// <returns></returns>
-        int AiBribeProbability(short doGenId, short beGenId)
+        int AIPoachProbability(General doGeneral, General beGeneral)
         {
-            General beGeneral = GeneralListCache.GetGeneral(beGenId);  // 获取被招揽的将领
-            General goGeneral = GeneralListCache.GetGeneral(doGenId);  // 获取招揽的将领
-
             if (beGeneral.GetLoyalty() == 100)  // 如果忠诚度为100，直接返回0
                 return 0;
 
             General beKing = GeneralListCache.GetGeneral(beGeneral.GetOfficeGenBelongKing());  // 被招揽将领的君主
-            General doKing = GeneralListCache.GetGeneral(goGeneral.GetOfficeGenBelongKing());  // 招揽将领的君主相性
+            General doKing = GeneralListCache.GetGeneral(doGeneral.GetOfficeGenBelongKing());  // 招揽将领的君主相性
 
-            int d1 = GeneralListCache.GetPhaseDifference(beKing, beGeneral);  // 计算相性差距
-            int d2 = GeneralListCache.GetPhaseDifference(doKing, beGeneral);    // 计算相性差距
-            int d3 = GeneralListCache.GetPhaseDifference(goGeneral, beGeneral);  // 招揽将领与被招揽将领的相性差距
+            int d1 = GeneralListCache.GetPhaseDifference(beKing, beGeneral);  // 计算对方君臣间相性差距
+            int d2 = GeneralListCache.GetPhaseDifference(doKing, beGeneral);    // 计算对方臣子与我方君主相性差距
+            int d3 = GeneralListCache.GetPhaseDifference(doGeneral, beGeneral);  // 招揽将领与被招揽将领的相性差距
 
             if (d1 == 0)
                 return 0;
             if (d2 == 0)
                 return 1000;
 
-            int val = d1 - d2 - d3 * 2 + 100 - beGeneral.GetLoyalty();  // 计算招揽成功的几率
+            int val = d1 - d2 - d3 * 2 + 100 - beGeneral.GetLoyalty();  // 相性差计算判断招揽成功的几率
             if (val > 0)
                 return val * 20;
 
             // 随机数判断是否招揽成功
-            if (Random.Range(0, 120) < goGeneral.IQ - beGeneral.IQ)
-                return (goGeneral.IQ - beGeneral.IQ) / 2;
+            if (Random.Range(0, 120) < doGeneral.wisdom - beGeneral.wisdom)
+                return (doGeneral.wisdom - beGeneral.wisdom) / 2;
 
             return 0;
         }
@@ -646,10 +595,10 @@ namespace TurnClass.AITurnStateMachine
         /// <param name="beCityId"></param>
         /// <param name="doGenId"></param>
         /// <param name="beGenId"></param>
-        public bool AiBribe(byte doCityId, byte beCityId, short doGenId, short beGenId, out string result)
+        public bool AIPoach(byte doCityId, byte beCityId, short doGenId, short beGenId, out string result)
         {
             result = String.Empty;
-            if (CityListCache.GetCityByCityId(beCityId).cityBelongKing == CountryListCache.GetCountryByCountryId(GameInfo.playerCountryId).countryKingId)
+            if (CityListCache.GetCityByCityId(beCityId).ownerID == CountryListCache.GetCountryByCountryId(GameInfo.playerCountryId).countryKingId)
             {
                 string generalName = GeneralListCache.GetGeneral(beGenId).generalName;
                 string cityName = CityListCache.GetCityByCityId(beCityId).cityName;
@@ -675,7 +624,7 @@ namespace TurnClass.AITurnStateMachine
             if (GeneralListCache.IsAlienate(doGenId, beGenId))
             {
                 City beCity = CityListCache.GetCityByCityId(beCityId);
-                if (beCity.cityBelongKing == CountryListCache.GetCountryByCountryId(GameInfo.playerCountryId).countryKingId)
+                if (beCity.ownerID == CountryListCache.GetCountryByCountryId(GameInfo.playerCountryId).countryKingId)
                 {
                     result = $"{GeneralListCache.GetGeneral(beGenId).generalName}正与{GeneralListCache.GetGeneral(doGenId)}在{beCity.cityName}暗中密谈";
                     return true;
@@ -698,11 +647,11 @@ namespace TurnClass.AITurnStateMachine
                     if (id <= 0)
                         return;
 
-                    short generalId = _curCity.GetMostMoralGeneralInCity();
+                    short generalId = _curCity.GetDoEmployOfficer(id);
                     _curCity.IsEmploy(generalId, id);
                 }
 
-                short searcher = _curCity.GetMostIqMoralGeneralInCity();
+                short searcher = _curCity.GetDoSearchOfficer();
                 _curCity.Search(searcher);
 
             }
@@ -731,7 +680,7 @@ namespace TurnClass.AITurnStateMachine
                 if (city.GetCityOfficerNum() < 10 && talentIds.Count > 0)
                 {
                     short generalId = talentIds[Random.Range(0, talentIds.Count)];
-                    short employGeneralId = city.GetDoSearchGen(generalId);
+                    short employGeneralId = city.GetDoEmployOfficer(generalId);
                     if (city.IsEmploy(employGeneralId, generalId))
                         return;
                 }
@@ -742,7 +691,7 @@ namespace TurnClass.AITurnStateMachine
                 City city = CityListCache.GetCityByCityId(cityID);
                 if (city.GetReservedGeneralNum() > 0)
                 {
-                    short generalId = city.GetMostIqMoralGeneralInCity();
+                    short generalId = city.GetDoSearchOfficer();
                     city.Search(generalId);
                 }
             }
@@ -918,9 +867,9 @@ namespace TurnClass.AITurnStateMachine
                 City city = CityListCache.GetCityByCityId(cityID);  // 根据 ID 获取城市实例
 
                 // 如果城市人口超过 1000 且大于当前记录的最大人口，更新最大人口和目标城市 ID
-                if (city.population > 1000 && city.population > maxPopulation)
+                if (city.GetPopulation() > 1000 && city.GetPopulation() > maxPopulation)
                 {
-                    maxPopulation = city.population;
+                    maxPopulation = city.GetPopulation();
                     maxCityId = cityID;
                 }
             }
@@ -935,7 +884,7 @@ namespace TurnClass.AITurnStateMachine
 
                 int maxSoldierNum = city.GetMaxSoldierNum();  // 获取城市的总士兵数
                 int cityAllSoldierNum = maxSoldierNum - city.GetCityAllSoldierNum();  // 获取城市非驻守士兵数
-                int needSoldierNum = cityAllSoldierNum - city.cityReserveSoldier;  // 计算需要补充的士兵数
+                int needSoldierNum = cityAllSoldierNum - city.reserveSoldiers;  // 计算需要补充的士兵数
 
                 // 如果需要补充士兵
                 if (needSoldierNum > 0)
@@ -947,14 +896,14 @@ namespace TurnClass.AITurnStateMachine
                     if (city.GetMoney() >= needMoney)
                     {
                         city.SubGold(needMoney);  // 减少城市金钱
-                        city.cityReserveSoldier += needMoney * 5;  // 增加城市的预备士兵
+                        city.reserveSoldiers += needMoney * 5;  // 增加城市的预备士兵
                         thisCity.SubPopulation(needSoldierNum);  // 减少人口最多城市的人口
                     }
                     else  // 如果金钱不足
                     {
                         int maxConscript = city.GetMoney() * 5;  // 根据金钱计算可征兵的数量
                         city.SubGold(city.GetMoney());  // 减少城市金钱
-                        city.cityReserveSoldier += maxConscript;  // 增加城市的预备士兵
+                        city.reserveSoldiers += maxConscript;  // 增加城市的预备士兵
                         thisCity.SubPopulation(maxConscript);  // 减少人口最多城市的人口
                     }
                 }
@@ -1030,7 +979,7 @@ namespace TurnClass.AITurnStateMachine
             {
                 foreach (byte adjacentCityId in adjacentCityIds)
                 {
-                    if (adjacentCityId != maxNeedPowerCity.cityId)
+                    if (adjacentCityId != maxNeedPowerCity.cityID)
                     {
                         City adjacentCity = CityListCache.GetCityByCityId(adjacentCityId);
                         byte generalNum = adjacentCity.GetCityOfficerNum();
@@ -1046,9 +995,9 @@ namespace TurnClass.AITurnStateMachine
                             if (defenseAbility - battlePower >= enemyAdjacentAtkPower)
                             {
                                 maxNeedPowerCity.AddOfficeGeneralId(minBattlePowerGeneralId);
-                                maxNeedPowerCity.AppointmentPrefect();
+                                maxNeedPowerCity.AutoAppointPrefect();
                                 adjacentCity.RemoveOfficerId(minBattlePowerGeneralId);
-                                adjacentCity.AppointmentPrefect();
+                                adjacentCity.AutoAppointPrefect();
                                 isMove = true;
                                 Debug.Log($"{adjacentCity.cityName} 的战力过大, 将武将: {minBattlePowerGeneral.generalName} 移动至 {maxNeedPowerCity.cityName}");
                             }
@@ -1198,9 +1147,9 @@ namespace TurnClass.AITurnStateMachine
             }
 
             // 任命目的城池的太守
-            beCity.AppointmentPrefect();
+            beCity.AutoAppointPrefect();
             // 任命出发城池的太守
-            doCity.AppointmentPrefect();
+            doCity.AutoAppointPrefect();
         }
 
 
@@ -1244,7 +1193,7 @@ namespace TurnClass.AITurnStateMachine
             foreach (byte connectCityId in city.connectCityId)
             {
                 // 获取邻接城市的君主ID
-                short belongKing = CityListCache.GetCityByCityId(connectCityId).cityBelongKing;
+                short belongKing = CityListCache.GetCityByCityId(connectCityId).ownerID;
                 // 如果邻接城市的君主ID与当前势力不同
                 if (belongKing != _country.countryKingId)
                 {
@@ -1336,7 +1285,7 @@ namespace TurnClass.AITurnStateMachine
             {
                 City city = CityListCache.GetCityByCityId(cityID); // 获取城市对象
                 // 检查城市金钱或宝物数量
-                if (city.GetMoney() >= 50 || city.treasureNum != 0)
+                if (city.GetMoney() >= 50 || city.GetTreasureNum() != 0)
                 {
                     short[] officeGeneralIdArray = city.GetOfficerIds(); // 获取城市办公厅将领ID数组
                     // 遍历城市中的将领
@@ -1348,7 +1297,7 @@ namespace TurnClass.AITurnStateMachine
                         if (generalScore > maxGeneralScore)
                         {
                             if ((tempGeneral.GetLoyalty() < 90 && city.GetMoney() > 50 && city.GetMoney() / 50 > Random.Range(0, 4)) ||
-                                (tempGeneral.GetLoyalty() >= 90 && city.treasureNum > 0 && city.treasureNum > Random.Range(0, 4)))
+                                (tempGeneral.GetLoyalty() >= 90 && city.GetTreasureNum() > Random.Range(0, 4)))
                             {
                                 maxGeneralScore = generalScore; // 更新最大得分
                                 _curGeneral = tempGeneral; // 设置目标将领
@@ -1373,13 +1322,14 @@ namespace TurnClass.AITurnStateMachine
             {
                 return;
             }
+            byte treasureNum = _curCity.GetTreasureNum();  // 获取目标城市的宝藏数量
             // 如果将领的忠诚度大于 90 且城市有宝藏
             if (_curGeneral.GetLoyalty() > 90)
             {
-                if (_curCity.treasureNum > 0)
+                if (treasureNum > 0)
                 {
                     _curGeneral.RewardAddLoyalty(false);  // 增加忠诚度但标记为不友好
-                    _curCity.treasureNum = (byte)(_curCity.treasureNum - 1);  // 减少城市的宝藏数量
+                    _curCity.SubTreasureNum(1);  // 减少城市的宝藏数量
                 }
             }
             // 否则如果城市金钱大于 50
@@ -1389,10 +1339,10 @@ namespace TurnClass.AITurnStateMachine
                 _curCity.SubGold((short)50);  // 减少城市的金钱
             }
             // 如果城市没有足够的金钱但有宝藏
-            else if (_curCity.treasureNum > 0)
+            else if (treasureNum > 0)
             {
                 _curGeneral.RewardAddLoyalty(false);  // 增加忠诚度但标记为不友好
-                _curCity.treasureNum = (byte)(_curCity.treasureNum - 1);  // 减少城市的宝藏
+                _curCity.SubTreasureNum(1);  // 减少城市的宝藏
             }
         }
 
@@ -1455,7 +1405,7 @@ namespace TurnClass.AITurnStateMachine
                             City enemyCity = CityListCache.GetCityByCityId(enemyCityId);
                             if (GameInfo.isWatch)  // 如果当前为观察模式，跳过玩家所属城市
                             {
-                                if (enemyCity.cityBelongKing != 0 && CountryListCache.GetCountryByKingId(enemyCity.cityBelongKing).countryId == GameInfo.playerCountryId)
+                                if (enemyCity.ownerID != 0 && CountryListCache.GetCountryByKingId(enemyCity.ownerID).countryId == GameInfo.playerCountryId)
                                     continue;
                             }
                             int defenseAbility = CountryListCache.GetEnemyAdjacentCityDefenseAbility(enemyCity, ownCity);  // 获取敌方防御能力
@@ -1484,7 +1434,7 @@ namespace TurnClass.AITurnStateMachine
             if (_curCity == null || _tarCity == null) // 如果城池为空，直接返回
                 return false;
             
-            if (_tarCity.cityBelongKing == 0) // 如果是空城池，战争胜利
+            if (_tarCity.ownerID == 0) // 如果是空城池，战争胜利
                 return true;
             int defPower = _tarCity.GetDefenseAbility(); // 获取防御能力
             int atkPower = _curCity.GetMaxAtkPower(); // 获取自身城市的最大攻击能力
@@ -1493,7 +1443,7 @@ namespace TurnClass.AITurnStateMachine
             if (random <= warAbility) // 如果随机数小于等于战争能力，战争胜利
                 return true;
 
-            if ((CountryListCache.GetCountryByKingId(_tarCity.cityBelongKing)).countryId == GameInfo.playerCountryId) // 如果城市所属势力是玩家势力
+            if ((CountryListCache.GetCountryByKingId(_tarCity.ownerID)).countryId == GameInfo.playerCountryId) // 如果城市所属势力是玩家势力
             {
                 random = Random.Range(0, 100); // 再次获取随机数
                 if (random <= warAbility)
@@ -1564,13 +1514,13 @@ namespace TurnClass.AITurnStateMachine
                 _curCity.RemoveOfficerId(t);
 
             // 重新任命太守
-            _curCity.AppointmentPrefect();
+            _curCity.AutoAppointPrefect();
 
             // 计算所需粮食
             _food = NeedFoodValue(_curCity, _generalIds);
 
             // 获取当前城市所属君主的 ID
-            short defKingId = _tarCity.cityBelongKing;
+            short defKingId = _tarCity.ownerID;
 
             // 计算所需金钱，若金钱少于50，设为0，否则取一半
             if (_curCity.GetMoney() < 50)
@@ -1597,7 +1547,7 @@ namespace TurnClass.AITurnStateMachine
             {
                 AIOccupyEmptyCity(_tarCity, _generalIds, _food, _gold);
                 result = $"{_country.KingName()}军占领了空城{_tarCity.cityName}";// 更新显示信息
-                UIGlobe.UpdateCityButtonColor(_tarCity.cityId, _country.countryColor);
+                UIGlobe.UpdateCityButtonColor(_tarCity.cityID, _country.countryColor);
                 return 0;
             }
             else if (defKingId == (CountryListCache.GetCountryByCountryId(GameInfo.playerCountryId)).countryKingId)
@@ -1606,9 +1556,10 @@ namespace TurnClass.AITurnStateMachine
                 result = $"{_country.KingName()}军前来攻打{_tarCity.cityName}...";// 更新显示信息
                 GameInfo.PlayingState = GameState.AIvsPlayer;
                 GameInfo.countryDieTips = 0;
-                GameInfo.targetCityId = _tarCity.cityId;
-                GameInfo.doCityId = _curCity.cityId;
-                GameInfo.targetGeneralIds = _generalIds;
+                GameInfo.targetCityId = _tarCity.cityID;
+                GameInfo.doCityId = _curCity.cityID;
+                GameInfo.SetTargetGeneral(_generalIds);
+                GameInfo.optionalGeneralIds.Clear();
                 GameInfo.optionalGeneralIds.Add((short)_food);
                 GameInfo.optionalGeneralIds.Add((short)_gold);
                 return 2;
@@ -1642,7 +1593,7 @@ namespace TurnClass.AITurnStateMachine
                 {
                     rusult = $"{_country.KingName()}军占领了{_tarCity.cityName}！";
                     //yield return TurnManager.Instance.uiGlobe.tips.ShowTurnTips(win, GameState.AIWinAI);
-                    UIGlobe.UpdateCityButtonColor(_tarCity.cityId, _country.countryColor);
+                    UIGlobe.UpdateCityButtonColor(_tarCity.cityID, _country.countryColor);
                     //yield return IsDestroyed(defCity, generalIds, needFood, needMoney); // 处理战后事宜
                 }
                 else
@@ -1702,7 +1653,7 @@ namespace TurnClass.AITurnStateMachine
         // 计算军中将领兵力
         short GetTotalSoldierNum(List<short> generalIds)
         {
-            return generalIds.Aggregate<short, short>(0, (current, id) => (short)(current + GeneralListCache.GetGeneral(id).generalSoldier));
+            return generalIds.Aggregate<short, short>(0, (current, id) => (short)(current + GeneralListCache.GetGeneral(id).soldiers));
         }
 
         /// <summary>
@@ -1714,11 +1665,11 @@ namespace TurnClass.AITurnStateMachine
         /// <param name="gold">金钱</param>
         void AIOccupyEmptyCity(City city, List<short> generalIds, int food, int gold)
         {
-            _country.AddCity(city.cityId); // 将当前城市添加到势力
+            _country.AddCity(city.cityID); // 将当前城市添加到势力
             foreach (var id in generalIds)
                 city.AddOfficeGeneralId(id); // 将将军 ID 添加到城市中
-            city.cityBelongKing = _country.countryKingId; // 设置城市的君主
-            city.prefectId = generalIds[0]; // 设置城市的 prefectId
+            city.ownerID = _country.countryKingId; // 设置城市的君主
+            city.prefectID = generalIds[0]; // 设置城市的 prefectId
             city.AddFood(food); // 添加食物
             city.AddGold(gold); // 添加资金
         }
@@ -1737,7 +1688,7 @@ namespace TurnClass.AITurnStateMachine
             //}
             
             // 战争失败，进行相应处理
-            IsCommanderRetreat(defCity, attackerIds, defCity.cityBelongKing, food, gold);
+            IsCommanderRetreat(defCity, attackerIds, defCity.ownerID, food, gold);
             return false;
         }
 
@@ -1757,7 +1708,7 @@ namespace TurnClass.AITurnStateMachine
             for (byte i = 0; i < generalNum; i = (byte)(i + 1))
             {
                 General general = GeneralListCache.GetGeneral(generalIdArray[i]); // 获取武将
-                byte zl = general.IQ; // 智力
+                byte zl = general.wisdom; // 智力
 
                 // 计算武将战斗力 (多属性加成公式)
                 int gjl = general.GetWarValue();
@@ -1785,15 +1736,15 @@ namespace TurnClass.AITurnStateMachine
                 gfzdl[i] = (int)gjl2;
 
                 // 调整战斗力上限与下限
-                if (general.generalSoldier < 500)
+                if (general.soldiers < 500)
                     gfzdl[i] = Mathf.Min(100, gfzdl[i]);
 
                 if (gfzdl[i] < 20)
-                    gfzdl[i] = Mathf.Max(general.generalSoldier / 150, gfzdl[i]);
+                    gfzdl[i] = Mathf.Max(general.soldiers / 150, gfzdl[i]);
 
                 // 总战斗力计算
                 gfZL[i] = gfzdl[i];
-                gfZL[i] = gfZL[i] * (general.generalSoldier + 1);
+                gfZL[i] = gfZL[i] * (general.soldiers + 1);
                 gfZZL += gfZL[i];
             }
         }
@@ -1808,7 +1759,7 @@ namespace TurnClass.AITurnStateMachine
             for (byte i = 0; i < generalIdArray.Length; i = (byte)(i + 1))
             {
                 General general = GeneralListCache.GetGeneral(generalIdArray[i]); // 获取武将
-                byte zl = general.IQ; // 智力
+                byte zl = general.wisdom; // 智力
                 byte ts = general.lead; // 统帅
                 byte dj = general.level; // 等级
                 byte wl = general.force; // 武力
@@ -1842,17 +1793,17 @@ namespace TurnClass.AITurnStateMachine
                 ffzdl[i] = (int)gjl2;
 
                 // 调整战斗力上限与下限
-                if (general.generalSoldier < 500)
+                if (general.soldiers < 500)
                     ffzdl[i] = Math.Min(150, ffzdl[i]);
 
                 if (ffzdl[i] < 20)
-                    ffzdl[i] = Math.Max(general.generalSoldier / 150, ffzdl[i]);
+                    ffzdl[i] = Math.Max(general.soldiers / 150, ffzdl[i]);
 
                 // 总战斗力计算
                 if (i == 0)
-                    ffZL[i] = ffZL[i] * (general.generalSoldier + 1);
+                    ffZL[i] = ffZL[i] * (general.soldiers + 1);
                 else
-                    ffZL[i] = ffZL[i] * (general.generalSoldier + 1);
+                    ffZL[i] = ffZL[i] * (general.soldiers + 1);
 
                 ffZZL += ffZL[i];
             }
@@ -1923,8 +1874,8 @@ namespace TurnClass.AITurnStateMachine
                 for (byte i = 0; i < atkSequence.Count; i++)
                 {
                     General general = GeneralListCache.GetGeneral(atkSequence[i]); // 获取武将
-                    int soldier = general.generalSoldier;
-                    byte phy = general.GetCurPhysical();
+                    int soldier = general.soldiers;
+                    byte phy = general.GetHP();
                     if (soldier > 0 || phy > 50)
                     {
                         attacker = general; // 找到攻击武将
@@ -1951,8 +1902,8 @@ namespace TurnClass.AITurnStateMachine
                 {
 
                     General general = GeneralListCache.GetGeneral(defenseSequence[i]);
-                    int soldier = general.generalSoldier;
-                    byte phy = general.GetCurPhysical();
+                    int soldier = general.soldiers;
+                    byte phy = general.GetHP();
                     if (soldier > 0 || phy > 50)
                     {
                         defender = general; // 找到防守武将
@@ -1979,12 +1930,12 @@ namespace TurnClass.AITurnStateMachine
             if (occupy)
             {
                 result = $"{_country.KingName()}军占领了{_tarCity.cityName}！";
-                UIGlobe.UpdateCityButtonColor(_tarCity.cityId, _country.countryColor);
+                UIGlobe.UpdateCityButtonColor(_tarCity.cityID, _country.countryColor);
                 return true;
             }
             else
             {
-                Country defCountry = CountryListCache.GetCountryByKingId(_tarCity.cityBelongKing); // 获取防守方的势力对象
+                Country defCountry = CountryListCache.GetCountryByKingId(_tarCity.ownerID); // 获取防守方的势力对象
                 result = $"{_country.KingName()}在{_tarCity.cityName}被{defCountry.KingName()}击败了!";
                 return false; // 返回是否占领成功
             }
@@ -2015,19 +1966,19 @@ namespace TurnClass.AITurnStateMachine
         {
             result = String.Empty;
             General king = GeneralListCache.GetGeneral(_country.countryKingId); // 获取攻击方君主对象
-            short defKingId = _tarCity.cityBelongKing; // 获取城市原所属君主
+            short defKingId = _tarCity.ownerID; // 获取城市原所属君主
             Country defCountry = CountryListCache.GetCountryByKingId(defKingId); // 获取势力对象
             List<short> defenderIds = new List<short>(_tarCity.GetOfficerIds()); // 获取城市中的防御将军ID
 
             _tarCity.ClearAllOfficeGeneral(); // 清空城市中的所有将军
-            defCountry.RemoveCity(_tarCity.cityId); // 处理城市所属国的变更
-            _country.AddCity(_tarCity.cityId);
+            defCountry.RemoveCity(_tarCity.cityID); // 处理城市所属国的变更
+            _country.AddCity(_tarCity.cityID);
 
             for (int i = 0; i < _generalIds.Count; i++)
                 _tarCity.AddOfficeGeneralId(_generalIds[i]); // 将进攻方的将军ID添加到城市中
 
-            _tarCity.prefectId = _generalIds[0]; // 设置城市的新太守
-            _tarCity.cityBelongKing = _country.countryKingId; // 更新城市的君主
+            _tarCity.prefectID = _generalIds[0]; // 设置城市的新太守
+            _tarCity.ownerID = _country.countryKingId; // 更新城市的君主
 
             short takeThing = _tarCity.GetMoney(); // 获取城市当前金钱
             _tarCity.SetMoney(_gold); // 更新城市金钱
@@ -2048,7 +1999,7 @@ namespace TurnClass.AITurnStateMachine
                     {
                         if (_tarCity.GetCityOfficerNum() > 9)
                         {
-                            defender.CapturedGeneralTo(_tarCity.cityId);
+                            defender.CapturedGeneralTo(_tarCity.cityID);
                             Debug.Log($"武将：{defender.generalName}在{_tarCity.cityName}被{king.generalName}俘获！");
                         }
                         else if (_country.FindVacantCity(out byte vacantCityID))
@@ -2111,21 +2062,21 @@ namespace TurnClass.AITurnStateMachine
                         commanderRetreat = false; // 与撤退方君主不合，主将撤退失败
                         Debug.Log($"武将：{commander.generalName}在{_tarCity.cityName}撤退失败！");
                     }
-                    else if (commander.GetCurPhysical() <= 40 && commander.generalSoldier <= 0 && 
+                    else if (commander.GetHP() <= 40 && commander.soldiers <= 0 && 
                              GeneralListCache.GetPhaseDifference(commander, king) <= 20)
                     {
                         byte capturedProbability;
 
                         // 根据将军的 IQ、force 和 lead 值计算被俘几率
-                        if (commander.IQ >= 95 || commander.force >= 95 || commander.lead >= 95 || commander.loyalty >= 95)
+                        if (commander.wisdom >= 95 || commander.force >= 95 || commander.lead >= 95 || commander.loyalty >= 95)
                         {
                             capturedProbability = 5;
                         }
-                        else if (commander.IQ >= 90 || commander.force >= 90 || commander.lead >= 90 || commander.loyalty >= 90)
+                        else if (commander.wisdom >= 90 || commander.force >= 90 || commander.lead >= 90 || commander.loyalty >= 90)
                         {
                             capturedProbability = 15;
                         }
-                        else if (commander.IQ >= 80 || commander.force >= 80 || commander.lead >= 80 || commander.loyalty >= 80)
+                        else if (commander.wisdom >= 80 || commander.force >= 80 || commander.lead >= 80 || commander.loyalty >= 80)
                         {
                             capturedProbability = 25;
                         }
@@ -2163,21 +2114,21 @@ namespace TurnClass.AITurnStateMachine
                     {
                         retreaterIds.Add(id); // 撤退成功，添加ID
                     }
-                    else if (gen.GetCurPhysical() > 40 || gen.generalSoldier > 0 || 
+                    else if (gen.GetHP() > 40 || gen.soldiers > 0 || 
                         GeneralListCache.GetPhaseDifference(gen, king) > 20)
                     {
                         byte capturedProbability;
 
                         // 根据将军的 IQ、force 和 lead 值计算被俘几率
-                        if (gen.IQ >= 95 || gen.force >= 95 || gen.lead >= 95 || gen.loyalty >= 95)
+                        if (gen.wisdom >= 95 || gen.force >= 95 || gen.lead >= 95 || gen.loyalty >= 95)
                         {
                             capturedProbability = 5;
                         }
-                        else if (gen.IQ >= 90 || gen.force >= 90 || gen.lead >= 90 || gen.loyalty >= 90)
+                        else if (gen.wisdom >= 90 || gen.force >= 90 || gen.lead >= 90 || gen.loyalty >= 90)
                         {
                             capturedProbability = 15;
                         }
-                        else if (gen.IQ >= 80 || gen.force >= 80 || gen.lead >= 80 || gen.loyalty >= 80)
+                        else if (gen.wisdom >= 80 || gen.force >= 80 || gen.lead >= 80 || gen.loyalty >= 80)
                         {
                             capturedProbability = 25;
                         }
@@ -2192,7 +2143,7 @@ namespace TurnClass.AITurnStateMachine
                     }
                 }
                 
-                defCountry.AIRetreatGeneralToCity(retreaterIds.ToArray(), _tarCity.cityId, _food, _gold, !commanderRetreat); // 将将军撤退到城市
+                defCountry.AIRetreatGeneralToCity(retreaterIds.ToArray(), _tarCity.cityID, _food, _gold, !commanderRetreat); // 将将军撤退到城市
                 _gold = 0;
                 _food = 0;
             }
@@ -2232,7 +2183,7 @@ namespace TurnClass.AITurnStateMachine
                     // 根据将军和君主的相性值计算是否俘获
                     if (GeneralListCache.GetPhaseDifference(general, winner) <= 20)
                     {
-                        general.CapturedGeneralTo(lostCity.cityId); // 将将军俘获
+                        general.CapturedGeneralTo(lostCity.cityID); // 将将军俘获
                         if (generalIds.IndexOf(generalIds[i]) == 0)
                         {
                             lostCommander = true; // 标记主将被俘获
@@ -2245,20 +2196,20 @@ namespace TurnClass.AITurnStateMachine
                         continue;
                     }
                 }
-                else if (general.GetCurPhysical() <= 40 && general.generalSoldier <= 0 && GeneralListCache.GetPhaseDifference(loser, general) > 15)
+                else if (general.GetHP() <= 40 && general.soldiers <= 0 && GeneralListCache.GetPhaseDifference(loser, general) > 15)
                 {
                     byte capturedProbability;
 
                     // 根据将军的 IQ、force 和 lead 值计算被俘几率
-                    if (general.IQ >= 95 || general.force >= 95 || general.lead >= 95 || general.loyalty >= 95)
+                    if (general.wisdom >= 95 || general.force >= 95 || general.lead >= 95 || general.loyalty >= 95)
                     {
                         capturedProbability = 5;
                     }
-                    else if (general.IQ >= 90 || general.force >= 90 || general.lead >= 90 || general.loyalty >= 90)
+                    else if (general.wisdom >= 90 || general.force >= 90 || general.lead >= 90 || general.loyalty >= 90)
                     {
                         capturedProbability = 15;
                     }
-                    else if (general.IQ >= 80 || general.force >= 80 || general.lead >= 80 || general.loyalty >= 80)
+                    else if (general.wisdom >= 80 || general.force >= 80 || general.lead >= 80 || general.loyalty >= 80)
                     {
                         capturedProbability = 25;
                     }
@@ -2270,7 +2221,7 @@ namespace TurnClass.AITurnStateMachine
                     // 随机判断是否俘获将军
                     if (Random.Range(0, 100) < capturedProbability)
                     {
-                        general.CapturedGeneralTo(lostCity.cityId); // 将将军俘获
+                        general.CapturedGeneralTo(lostCity.cityID); // 将将军俘获
                         if (generalIds.IndexOf(generalIds[i]) == 0)
                         {
                             lostCommander = true; // 标记主将被俘获
@@ -2290,7 +2241,7 @@ namespace TurnClass.AITurnStateMachine
             bool commanderRetreat = false; // 标记主将是否有空位撤退成功
             if (retreatIds.Count > 0)
             {
-                commanderRetreat = loseCountry.AIRetreatGeneralToCity(retreatIds.ToArray(), lostCity.cityId, food, gold, lostCommander); // 将将军撤退到城市
+                commanderRetreat = loseCountry.AIRetreatGeneralToCity(retreatIds.ToArray(), lostCity.cityID, food, gold, lostCommander); // 将将军撤退到城市
             }
 
             if (!commanderRetreat || lostCommander) // 如果主将没有成功撤退
@@ -2321,7 +2272,7 @@ namespace TurnClass.AITurnStateMachine
                 {
                     if (occupiedCity.GetCityOfficerNum() > 9)
                     {
-                        lostGen.CapturedGeneralTo(occupiedCity.cityId);
+                        lostGen.CapturedGeneralTo(occupiedCity.cityID);
                         Debug.Log($"武将：{lostGen.generalName}在{occupiedCity.cityName}被{king.generalName}俘获！");
                     }
                     else if (country.FindVacantCity(out byte vacantCityID))
@@ -2392,12 +2343,12 @@ namespace TurnClass.AITurnStateMachine
                 General general = GeneralListCache.GetGeneral(generalId); // 获取将军对象
 
                 // 判断势力是否只剩下当前城市
-                if (country.cityIDs.Count == 1 && country.cityIDs[0] == defCity.cityId)
+                if (country.cityIDs.Count == 1 && country.cityIDs[0] == defCity.cityID)
                 {
                     // 根据将军和君主的相性值计算是否俘获
                     if (GeneralListCache.GetPhaseDifference(king, general) > 20)
                     {
-                        general.CapturedGeneralTo(defCity.cityId); // 将将军俘获
+                        general.CapturedGeneralTo(defCity.cityID); // 将将军俘获
                         if (generalIds.IndexOf(generalId) == 0)
                         {
                             commanderCaptured = true; // 标记主将被俘获
@@ -2410,20 +2361,20 @@ namespace TurnClass.AITurnStateMachine
                         continue;
                     }
                 }
-                else if (general.GetCurPhysical() <= 40 && general.generalSoldier <= 0 && GeneralListCache.GetPhaseDifference(king, general) > 15)
+                else if (general.GetHP() <= 40 && general.soldiers <= 0 && GeneralListCache.GetPhaseDifference(king, general) > 15)
                 {
                     byte capturedProbability;
 
                     // 根据将军的 IQ、force 和 lead 值计算被俘几率
-                    if (general.IQ >= 95 || general.force >= 95 || general.lead >= 95 || general.loyalty >= 95)
+                    if (general.wisdom >= 95 || general.force >= 95 || general.lead >= 95 || general.loyalty >= 95)
                     {
                         capturedProbability = 5;
                     }
-                    else if (general.IQ >= 90 || general.force >= 90 || general.lead >= 90 || general.loyalty >= 90)
+                    else if (general.wisdom >= 90 || general.force >= 90 || general.lead >= 90 || general.loyalty >= 90)
                     {
                         capturedProbability = 15;
                     }
-                    else if (general.IQ >= 80 || general.force >= 80 || general.lead >= 80 || general.loyalty >= 80)
+                    else if (general.wisdom >= 80 || general.force >= 80 || general.lead >= 80 || general.loyalty >= 80)
                     {
                         capturedProbability = 25;
                     }
@@ -2435,7 +2386,7 @@ namespace TurnClass.AITurnStateMachine
                     // 随机判断是否俘获将军
                     if (Random.Range(0, 100) <= capturedProbability)
                     {
-                        general.CapturedGeneralTo(defCity.cityId); // 将将军俘获
+                        general.CapturedGeneralTo(defCity.cityID); // 将将军俘获
                         if (generalIds.IndexOf(generalId) == 0)
                         {
                             commanderCaptured = true; // 标记主将被俘获
@@ -2454,7 +2405,7 @@ namespace TurnClass.AITurnStateMachine
             bool masterRetreat = false; // 标记主将是否撤退成功
             if (tempGeneralIds.Count > 0)
             {
-                masterRetreat = country.AIRetreatGeneralToCity(tempGeneralIds.ToArray(), defCity.cityId, food, money, commanderCaptured); // 将将军撤退到城市
+                masterRetreat = country.AIRetreatGeneralToCity(tempGeneralIds.ToArray(), defCity.cityID, food, money, commanderCaptured); // 将将军撤退到城市
             }
 
             if (!masterRetreat || commanderCaptured) // 如果主将没有成功撤退
@@ -2477,8 +2428,8 @@ namespace TurnClass.AITurnStateMachine
         void MoniAtk2(General atkGen, General defGen, bool isPrefect)
         {
             // 获取双方士兵数量
-            short soldier1 = atkGen.generalSoldier;
-            short soldier2 = defGen.generalSoldier;
+            short soldier1 = atkGen.soldiers;
+            short soldier2 = defGen.soldiers;
 
             // 双方均有士兵的情况下
             if (soldier1 > 0 && soldier2 > 0)
@@ -2619,7 +2570,7 @@ namespace TurnClass.AITurnStateMachine
             power1 = MoniAtkGetGenPower(power1, false, atkGen);
 
             // 计算部队战斗力
-            int sword1 = power1 * atkGen.generalSoldier; // 攻击方部队总战斗力
+            int sword1 = power1 * atkGen.soldiers; // 攻击方部队总战斗力
             int sword2 = power2 * CanGetHP(defGen) * (isCity ? 3 : 2); // 防守方武将总战斗力
 
             if (sword1 > sword2)
@@ -2629,7 +2580,7 @@ namespace TurnClass.AITurnStateMachine
                 atkGen.SubSoldier((short)dea1);
 
                 // 防守方设置体力
-                defGen.SetCurPhysical((byte)(35 + Random.Range(0, 5)));
+                defGen.SetHP((byte)(35 + Random.Range(0, 5)));
 
                 // 防守方获得经验值
                 defGen.AddForceExp((byte)(dea1 / 50));
@@ -2637,19 +2588,19 @@ namespace TurnClass.AITurnStateMachine
             else
             {
                 // 防守方获胜，攻击方士兵全灭
-                atkGen.generalSoldier = 0;
+                atkGen.soldiers = 0;
 
                 // 防守方受到伤害
-                defGen.SubHp(sword1 / (power2 * (isCity ? 3 : 2)));
+                defGen.SubHP(sword1 / (power2 * (isCity ? 3 : 2)));
 
                 // 确保防守方体力最低为 1
-                if (defGen.curPhysical < 1)
+                if (defGen.health < 1)
                 {
-                    defGen.curPhysical = 1;
+                    defGen.health = 1;
                 }
 
                 // 防守方获得经验值
-                defGen.AddForceExp((byte)(atkGen.generalSoldier / 50));
+                defGen.AddForceExp((byte)(atkGen.soldiers / 50));
             }
         }
 
@@ -2677,24 +2628,24 @@ namespace TurnClass.AITurnStateMachine
 
             // 计算部队战斗力
             int sword1 = power1 * CanGetHP(atkGen) * (isCity ? 1 : 2); // 攻击方武将总战斗力
-            int sword2 = power2 * defGen.generalSoldier; // 防守方部队总战斗力
+            int sword2 = power2 * defGen.soldiers; // 防守方部队总战斗力
 
             if (sword1 > sword2)
             {
                 // 攻击方获胜，防守方士兵全灭
-                defGen.generalSoldier = 0;
+                defGen.soldiers = 0;
 
                 // 攻击方受到伤害
-                atkGen.SubHp(sword2 / (power1 * (isCity ? 1 : 2)));
+                atkGen.SubHP(sword2 / (power1 * (isCity ? 1 : 2)));
 
                 // 确保攻击方体力最低为 1
-                if (atkGen.curPhysical < 1)
+                if (atkGen.health < 1)
                 {
-                    atkGen.curPhysical = 1;
+                    atkGen.health = 1;
                 }
 
                 // 攻击方获得经验值
-                atkGen.AddForceExp((byte)(defGen.generalSoldier / 50));
+                atkGen.AddForceExp((byte)(defGen.soldiers / 50));
             }
             else
             {
@@ -2703,7 +2654,7 @@ namespace TurnClass.AITurnStateMachine
                 defGen.SubSoldier((short)dea1);
 
                 // 攻击方设置体力
-                atkGen.SetCurPhysical((byte)(35 + Random.Range(0, 5)));
+                atkGen.SetHP((byte)(35 + Random.Range(0, 5)));
 
                 // 攻击方获得经验值
                 atkGen.AddForceExp((byte)(dea1 / 50));
@@ -2717,25 +2668,25 @@ namespace TurnClass.AITurnStateMachine
         void SimulateDuel(General atkGen, General defGen)
         {
             // 单挑逻辑
-            int power1 = atkGen.force + atkGen.force * (WeaponListCache.GetWeapon(atkGen.weapon).weaponProperties + WeaponListCache.GetWeapon(atkGen.armor).weaponProperties) / 100;
-            int power2 = defGen.force + defGen.force * (WeaponListCache.GetWeapon(defGen.weapon).weaponProperties + WeaponListCache.GetWeapon(defGen.armor).weaponProperties) / 100;
+            int power1 = atkGen.force + atkGen.force * (WeaponListCache.GetWeapon(atkGen.arm).property + WeaponListCache.GetWeapon(atkGen.armor).property) / 100;
+            int power2 = defGen.force + defGen.force * (WeaponListCache.GetWeapon(defGen.arm).property + WeaponListCache.GetWeapon(defGen.armor).property) / 100;
 
             power1 = 1 + power1 * power1 / 2;
             power2 = 1 + power2 * power2 / 2;
 
-            byte phy1 = atkGen.curPhysical;
-            byte phy2 = defGen.curPhysical;
+            byte phy1 = atkGen.health;
+            byte phy2 = defGen.health;
 
             // 比较逻辑
             if (power1 * phy1 > power2 * phy2)
             {
-                defGen.curPhysical = 10;
-                atkGen.SubHp((power1 * phy1 - power2 * phy2) / power1);
+                defGen.health = 10;
+                atkGen.SubHP((power1 * phy1 - power2 * phy2) / power1);
             }
             else
             {
-                atkGen.curPhysical = 10;
-                defGen.SubHp((power2 * phy2 - power1 * phy1) / power2);
+                atkGen.health = 10;
+                defGen.SubHP((power2 * phy2 - power1 * phy1) / power2);
             }
         }
 
@@ -2747,7 +2698,7 @@ namespace TurnClass.AITurnStateMachine
             long gjl_jq = 1 + (power*power*power)/100000;
             if (isCommander)
             {
-                if (general.generalSoldier<=500)
+                if (general.soldiers<=500)
                 {
                     gjl_jq = (long) Mathf.Min(100, gjl_jq);	
                 }
@@ -2758,7 +2709,7 @@ namespace TurnClass.AITurnStateMachine
         byte GetRandomTerrain()
         {
             //根据城池随机得到小战场地形
-            if (DataManagement.maps.TryGetValue(_tarCity.cityId, out var tarMap))
+            if (DataManager.maps.TryGetValue(_tarCity.cityID, out var tarMap))
             {
                 var t = tarMap[Random.Range(0, 19), Random.Range(0, 32)];
                 switch (t)
@@ -2766,13 +2717,10 @@ namespace TurnClass.AITurnStateMachine
                     case 1: case 2: case 3: case 4: case 5:
                     case 6: case 7: case 8: case 19: case 22:
                         return 0;
-                        break;
                     case 10: case 11: case 12: // 树林、森林、山地
                         return 1;
-                        break;
                     case 9: case 15: // 河流或其他地形
                         return 2;
-                        break;
                 }
             }
             return 0;
@@ -2793,8 +2741,8 @@ namespace TurnClass.AITurnStateMachine
         {
             // 计算将领的单个战斗力
             int power = general.force * 2 +
-                        general.force * WeaponListCache.GetWeapon(general.weapon).weaponProperties / 100 +
-                        general.force * WeaponListCache.GetWeapon(general.armor).weaponProperties / 100;
+                        general.force * WeaponListCache.GetWeapon(general.arm).property / 100 +
+                        general.force * WeaponListCache.GetWeapon(general.armor).property / 100;
             long p = (1 + power * power * power / 100000);
 
             return (int)p;
@@ -2804,11 +2752,11 @@ namespace TurnClass.AITurnStateMachine
         {
             // 获取将领的当前体力
             byte phy;
-            if (general.GetCurPhysical() > 35)
+            if (general.GetHP() > 35)
             {
-                int ph = Random.Range(0, general.GetCurPhysical()) + 30;
-                if (ph >= general.GetCurPhysical())
-                    ph = general.GetCurPhysical() - 35;
+                int ph = Random.Range(0, general.GetHP()) + 30;
+                if (ph >= general.GetHP())
+                    ph = general.GetHP() - 35;
 
                 phy = (byte)ph;
             }
@@ -2864,10 +2812,10 @@ namespace TurnClass.AITurnStateMachine
                 short generalId = officeGeneralIdArray[i];
                 General general = GeneralListCache.GetGeneral(generalId);
                 // 如果智力低于120
-                if (general.IQ < 120)
+                if (general.wisdom < 120)
                 {
                     // 根据智力值除以10的结果进行不同的处理
-                    switch (general.IQ / 10)
+                    switch (general.wisdom / 10)
                     {
                         // 智力在0-40之间
                         case 0:
@@ -2987,7 +2935,7 @@ namespace TurnClass.AITurnStateMachine
             {
                 byte physical = (byte)AiTreatValue();  // 获取随机治疗效果
                 General general = GeneralListCache.GetGeneral(treatGeneralIds[i]);  // 获取当前操作的将领
-                general.AddCurPhysical(physical);  // 增加将领的当前体力
+                general.AddHP(physical);  // 增加将领的当前体力
             }
             city.SubGold(50);  // 从城市的金钱中扣除 50
         }

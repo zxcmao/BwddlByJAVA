@@ -1,9 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using BaseClass;
 using DataClass;
+using TurnClass.AITurnStateMachine;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using static DataClass.GameInfo;
@@ -11,7 +11,6 @@ using Random = UnityEngine.Random;
 
 namespace TurnClass
 {
-
     public class TurnManager : MonoBehaviour
     {
         // 私有静态实例，用于实现单例模式
@@ -41,10 +40,12 @@ namespace TurnClass
         }
         
         
-        private byte _disasterCount;
-        private List<byte> _disasterCity;
+        private Dictionary<byte, GameState> _disasterCity;
         public UIGlobe uiGlobe;
-        public AITurnStateMachine.AITurnStateMachine aiTurnStateMachine;
+        
+        private EventQueueManager monthlyQueue = new EventQueueManager();
+        private AITurnStateMachine.AITurnStateMachine aiTurnStateMachine;
+        public Action OnPlayerConfirm;
         
         void Awake()
         {
@@ -95,38 +96,23 @@ namespace TurnClass
             if (SceneManager.GetActiveScene().name == "GlobalScene")
             {
                 uiGlobe = GameObject.Find("Canvas").GetComponent<UIGlobe>();
-               
+                Debug.Log("进入全局场景游戏状态为" + PlayingState);
                 if (Task == TaskType.SelfBuild) return;
                 if (PlayingState == GameState.GameStart)
                 {
                     GameStart();
                 }
-                else if (PlayingState == GameState.PlayerTurn)//处于玩家操作回合
+                else if (PlayingState == GameState.Playing)//处于回合切换间
                 {
-                    if (playerOrderNum == 0)
-                    {
-                        Debug.Log("玩家命令用尽");
-                        PlayingState = GameState.AITurn;
-                        //StartCoroutine(ExecuteMouth());
-                    }
+                    StartTurn();
                 }
-                else if (PlayingState == GameState.AITurn)//处于玩家操作回合
+                else if (PlayingState == GameState.AITurn || PlayingState == GameState.AIvsPlayer || PlayingState == GameState.PlayervsAI)//AI发起战争后返回
                 {
-                    if (aiTurnStateMachine.IsFinished)
-                    {
-                        Debug.Log("AI命令用尽");
-                        PlayingState = GameState.PlayerTurn;
-                        //StartCoroutine(ExecuteMouth());
-                    }
+                    BackFromWar();
                 }
-                else if (PlayingState == GameState.AIvsPlayer)//AI发起战争后返回
+                else
                 {
-                    StartCoroutine(BackFromWar());
-                }
-                else if (PlayingState == GameState.PlayervsAI)//玩家发起战争后返回
-                {
-                    SubPlayerOrder();
-                    StartCoroutine(BackFromWar());
+                    Debug.LogWarning("当前游戏状态" + PlayingState);
                 }
                 
             }
@@ -134,7 +120,17 @@ namespace TurnClass
 
         public void GameStart()
         {
-            ReadMapData();
+            DataManager.ReadMapData();
+            Debug.Log(PlayerPrefs.GetFloat("bgmVolume"));
+            if (PlayerPrefs.GetFloat("bgmVolume") > 0)
+            {
+                GameClass.SoundManager.Instance.PlayBGM("Assets/Audio/Bgm/2.ogg");
+                Debug.Log("播放音乐2");
+            }
+            else
+            {
+                GameClass.SoundManager.Instance.StopBGM();
+            }
             curTurnIndex = -1;  // 初始化变量
             curTurnCountryId = 0;
             PlayingState = GameState.Playing;
@@ -143,116 +139,180 @@ namespace TurnClass
 
             StartTurn();
         }
-        public static void ReadMapData()
-        {
-            foreach (var cityID in CityListCache.cityDictionary.Keys)
-            {
-                Instance.StartCoroutine(DataManagement.LoadMapAsync(cityID, (map) =>
-                {
-                    // 读取地图数据
-                    if (map != null)
-                    {
-                        Debug.Log(cityID +"地图加载成功！");
-                        // 使用 warMap 进行逻辑处理
-                        DataManagement.maps.TryAdd(cityID, map);
-                    }
-                    else
-                    {
-                        Debug.LogError(cityID +"地图加载失败！");
-                    }
-                }));
-            }
-        }
+        
 
         void StartTurn()
         {
             if (PlayingState == GameState.GameOver)
             {
                 Debug.Log("游戏失败，退出");
-                return ;
+                return;
             }
+
             if (PlayingState == GameState.Playing)
             {
                 Debug.Log("开始新回合");
                 curTurnCountryId = CountryListCache.GetCurrentExecutionCountryId();
-                Debug.Log($"获取当前执行国家ID: {curTurnCountryId},下一个序号为{curTurnIndex}");
+                Debug.Log($"获取当前执行国家ID: {curTurnCountryId}, 下一个序号为 {curTurnIndex}");
 
-                attackCount = 0;  // 重置计数器
+                attackCount = 0;
                 Debug.Log("重置攻击计数器");
-            }
-            StartCoroutine(ExecuteMouth());
-        }
-
-        IEnumerator BackFromWar()
-        {
-            if (countryDieTips != 0)
-            {
-                if (countryDieTips == 1)
-                {
-                    yield return uiGlobe.tips.ShowTurnTips(ShowInfo, GameState.AIFail);  // 切换AI势力灭亡状态并处理
-                }
-                else if (countryDieTips == 2)
-                {
-                    Task = TaskType.Inherit;  // 调用继承逻辑
-                    uiGlobe.UpdateTurnInfo("请选择继任者所在的城池");
-                    yield break;
-                }
-                else if (countryDieTips == 3)
-                {
-                    playerOrderNum = 1;  // 设置用户指令
-                    yield return uiGlobe.tips.ShowTurnTips(ShowInfo, GameState.GameOver);  // 切换玩家势力灭亡状态
-                }
-                else if (countryDieTips == 4)
-                {
-                    yield return uiGlobe.tips.ShowTurnTips(ShowInfo, GameState.AIInherit);  // 切换AI继位状态
-                }
-                else
-                {
-                    yield return uiGlobe.tips.ShowTurnTips(ShowInfo, GameState.PlayerInherit); // 玩家继承完成
-                }
-                countryDieTips = 0;  // 重置国家灭亡提示
-            }
-
-            if (playerOrderNum == 0)
-            {
-                PlayingState = GameState.Playing;
-            }
-           
-            yield return ExecuteMouth();
-        }
-        
-        IEnumerator ExecuteMouth()
-        {
-            //根据势力ID开始执行回合
-
-            if (curTurnCountryId == playerCountryId)
-            {
-                yield return HandlePlayerTurn();  // 处理玩家回合
-                if (PlayingState == GameState.GameOver)
-                {
-                    Debug.Log("游戏失败，退出");
-                    yield break;  // 如果游戏失败，结束方法
-                }
+                StartCoroutine(ExecuteTurn());
             }
             else
             {
-                yield return HandleAITurn(curTurnCountryId);  // 处理AI回合
+                Debug.Log("开始回合当前状态错误: " + PlayingState);
+            }
+        }
+
+        private void EndTurn()
+        {
+            uiGlobe?.UpdateTurnInfo(String.Empty);
+            if (curTurnCountryId == CountryListCache.countrySequence[^1]) // 最后一个国家
+            {
+                AddMonth();
+
+                // 月度事件处理，处理完毕后继续执行回合
+                StartMonthlyEvents(() =>
+                {
+                    PlayingState = GameState.Playing;
+                    StartTurn();
+                });
+            }
+            else
+            {
+                PlayingState = GameState.Playing;
+                StartTurn();
+            }
+        }
+
+        void BackFromWar()
+        {
+            switch (countryDieTips)
+            {
+                case 1:
+                    // AI继承操作
+                    uiGlobe.tips.ShowTurnTipsWithConfirm(ShowInfo, GameState.Inherit, () =>
+                    {
+                        if (PlayingState == GameState.AIvsPlayer) // AI攻打玩家返回AI君主死亡继承
+                        {
+                            OnPlayerConfirm.Invoke();
+                        }
+                        else if (PlayingState == GameState.PlayervsAI) // 玩家攻打AI返回AI君主死亡继承
+                        {
+                            if (SubPlayerOrder())
+                            {
+                                StartTurn(); // 切换AI势力继承状态并处理
+                            }
+                            else
+                            {
+                                Task = TaskType.None;
+                                PlayingState = GameState.PlayerTurn;
+                            }
+                        }
+                    }); 
+                    break;
+                case 2: // 玩家继承,选城后跳转选将
+                    if (PlayingState == GameState.AIvsPlayer)
+                    {
+                        PlayingState = GameState.AITurn;
+                    }
+                    else if (PlayingState == GameState.PlayervsAI)
+                    {
+                        playerOrderNum = 1;  // 设置玩家指令
+                    }
+                    
+                    Task = TaskType.Inherit;  // 调用玩家继承逻辑
+                    uiGlobe.UpdateTurnInfo("请选择继任者所在的城池");
+                    break;
+                case 3: // AI势力灭亡状态
+                    uiGlobe.tips.ShowTurnTipsWithConfirm(ShowInfo, GameState.GameOver, () =>
+                    {
+                        if (PlayerHaveAllCity()) // 检查玩家是否拥有所有城市
+                        {
+                            PlayingState = GameState.GameWin;
+                            uiGlobe.UpdateTurnInfo(String.Empty);
+                            uiGlobe.GameEnd();
+                        }
+                        if (PlayingState == GameState.AIvsPlayer) // AI攻打玩家返回AI君主死亡继承
+                        {
+                            OnPlayerConfirm.Invoke();
+                        }
+                        else if (PlayingState == GameState.PlayervsAI) // 玩家攻打AI返回AI君主死亡继承
+                        {
+                            if (SubPlayerOrder())
+                            {
+                                StartTurn(); // 切换AI势力继承状态并处理
+                            }
+                            else
+                            {
+                                Task = TaskType.None;
+                                PlayingState = GameState.PlayerTurn;
+                            }
+                        }
+                    });  
+                    break;
+                case 4:
+                    playerOrderNum = 1;  // 设置玩家指令
+                    uiGlobe.tips.ShowTurnTipsWithConfirm(ShowInfo, GameState.GameOver, () =>
+                    {
+                        // 检查玩家是否没有城池
+                        if (PlayerHaveNoneCity())
+                        {
+                            PlayingState = GameState.GameOver;
+                            uiGlobe.UpdateTurnInfo(String.Empty);
+                            uiGlobe.GameEnd();
+                            StopAllCoroutines(); // 结束方法
+                        }
+                    });  // 切换玩家势力灭亡状态
+                    break;
+                default:
+                    if (PlayingState == GameState.AITurn)
+                    {
+                        OnPlayerConfirm.Invoke();
+                    }
+                    else if (PlayingState == GameState.PlayervsAI)
+                    {
+                        if (SubPlayerOrder())
+                        {
+                            StartTurn(); // 切换AI势力继承状态并处理
+                        }
+                        else
+                        {
+                            Task = TaskType.None;
+                            PlayingState = GameState.PlayerTurn;
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogError("任务类型" + Task + "当前状态错误" + PlayingState);
+                    }
+                    break;
             }
 
-            if (CountryListCache.countrySequence[^1] == curTurnCountryId)
+            countryDieTips = 0;// 重置国家灭亡提示
+        }
+        
+        IEnumerator ExecuteTurn()
+        {
+            //根据势力ID开始执行回合
+            if (curTurnCountryId == playerCountryId) //轮到玩家回合
             {
-                yield return MonthlyEvent();
-                EndMonth();
+                yield return HandlePlayerTurn();  // 处理玩家回合
             }
-            
-            StartTurn();
+            else //轮到AI回合
+            {
+                yield return HandleAITurn(curTurnCountryId);  // 处理AI回合
+            }
+            EndTurn();  // 结束回合
         }
         
         
         // 增加月份的方法
-        void EndMonth()
+        void AddMonth()
         {
             month++; // 增加月份
+            
             if (month > 12) // 如果月份超过12
             {
                 month = 1; // 重置月份为1
@@ -269,7 +329,7 @@ namespace TurnClass
         private IEnumerator HandlePlayerTurn()
         {
             Debug.Log("玩家回合开始");
-            // 用户操作代码，例如 userDoSomething()
+            
             Country playerCountry = CountryListCache.GetCountryByCountryId(playerCountryId);
 
             if (isWatch)  // 如果是观察状态，直接返回
@@ -277,7 +337,7 @@ namespace TurnClass
 
             if (PlayingState == GameState.Playing)  // 初始状态
             {
-                playerOrderNum = GetPlayerOrderNum();  // 获取用户指令编号
+                playerOrderNum = GetPlayerOrderNum();  // 获取玩家指令编号
                 doCityId = playerCountry.FindKingCity();  // 执行某个操作
                 SceneManager.LoadScene("CityScene");
                 PlayingState = GameState.PlayerTurn;
@@ -286,18 +346,28 @@ namespace TurnClass
             {
                 //ToDo
                 //战争打AI
-                CountryDieAfterWar();  // 执行战斗后的结算
-                
+                //CountryDieAfterWar();  // 执行战斗后的结算
+                Debug.Log("玩家战争结束");
+                PlayingState = GameState.PlayerTurn;
             }
             
-            yield return new WaitUntil(() => PlayingState == GameState.AITurn);
-            yield return new WaitForSeconds(2f);  // 等待玩家操作
-            PlayingState = GameState.Playing;  // 重置状态
+            yield return new WaitUntil(() => playerOrderNum == 0);  // 等待玩家指令执行完毕
+            
+            Debug.Log("玩家回合结束");
         }
         
         private IEnumerator HandleAITurn(byte countryId)
         {
-            uiGlobe.UpdateTurnInfo(CountryListCache.GetCountryByCountryId(countryId).KingName() + " 战略中...");
+            if (PlayingState == GameState.Playing)
+            {
+                if (SceneManager.GetActiveScene().name != "GlobalScene")
+                {
+                    yield return SceneManager.LoadSceneAsync("GlobalScene");  // 加载全地图场景
+                }
+                uiGlobe.UpdateTurnInfo(CountryListCache.GetCountryByCountryId(countryId).KingName() + " 战略中...");
+                PlayingState = GameState.AITurn;  // 更新状态
+            }
+            
             yield return new WaitForSeconds(1f);  // 等待1s
 
             if (aiTurnStateMachine == null)
@@ -312,453 +382,424 @@ namespace TurnClass
             
             yield return new WaitUntil(() => aiTurnStateMachine.IsFinished);  // 更新AI结束状态
             yield return new WaitForSeconds(1f);  // 等待1s
-            PlayingState = GameState.Playing;  // 重置状态
+            Debug.Log("AI回合结束");
         }
 
         private void Update()
         {
             aiTurnStateMachine?.UpdateState();
         }
-
-        // 处理战后判断国家是否灭亡逻辑
-        public void CountryDieAfterWar()
-        {
-            if (countryDieTips == 1)
-            {
-                AfterInheritNextCountryTurn(ShowInfo);  // 切换AI势力灭亡状态并处理
-            }
-            else if (countryDieTips == 2)
-            {
-                PlayingState = GameState.PlayerInherit;
-                Task = TaskType.Inherit;  // 调用继承逻辑
-                ShowInfo = ShowInfo + "新君主" + (GeneralListCache.GetGeneral((CountryListCache.GetCountryByCountryId(playerCountryId)).countryKingId)).generalName + " 继位!";  // 更新信息
-                AfterInheritNextCountryTurn("新君主" + (GeneralListCache.GetGeneral((CountryListCache.GetCountryByCountryId(playerCountryId)).countryKingId)).generalName + " 继位!");  // 切换玩家势力继位状态并处理
-            }
-            else if (countryDieTips == 3)
-            {
-                playerOrderNum = 1;  // 设置用户指令
-                PlayingState = GameState.GameOver;
-                AfterInheritNextCountryTurn("游戏结束");  // 切换玩家势力灭亡状态
-                return;
-            }
-            else if (countryDieTips == 4)
-            {
-                PlayingState = GameState.AIInherit;
-                AfterInheritNextCountryTurn("AI新君主继位");  // 切换AI继位状态
-            }
-            countryDieTips = 0;  // 重置国家灭亡提示
-            PlayingState = GameState.PlayerUseOrder;  // 更新状态为4
-        }
-
-
-    
-        /// <summary>
-        /// 势力继位后轮到下一个势力回合处理
-        /// </summary>
-        void AfterInheritNextCountryTurn(string text)
-        {
-            StartCoroutine(uiGlobe.tips.ShowTurnTips(text, GameState.AIInherit));
-            StartCoroutine(ExecuteMouth());
-            PlayingState = GameState.Playing; // 设置标志位
-        }
         
-    
+
+        public void StartMonthlyEvents(Action onComplete)
+        {
+            Debug.Log("开始处理月度事件...");
+            _disasterCity = new Dictionary<byte, GameState>(); // 初始化灾难城池哈希表
+            monthlyQueue.Clear(); // 清空上一次的队列
+            
+            // 以下添加所有要执行的月度事件步骤（顺序重要）
+            monthlyQueue.AddEvent(OnFinish => Uprising(OnFinish));
+            monthlyQueue.AddEvent(OnFinish => CheckForDisasters(OnFinish));
+            monthlyQueue.AddEvent(OnFinish => AutoManageCities(OnFinish));
+            monthlyQueue.AddEvent(OnFinish => HandleCityGenerals(OnFinish));
+            monthlyQueue.AddEvent(OnFinish => HandleMonthlyEvents(OnFinish));
+            monthlyQueue.AddEvent(OnFinish => HandleMonthlySkills(OnFinish));
+            monthlyQueue.AddEvent(OnFinish => UpdateAlliances(OnFinish));
+            monthlyQueue.AddEvent(OnFinish => TalentGenMove(OnFinish));
+
+            // 最后一步
+            monthlyQueue.AddEvent(OnFinish => {
+                Debug.Log("月度事件处理完成！");
+                onComplete?.Invoke();
+            });
+
+            // 开始执行
+            monthlyQueue.Start();
+        }
+
+        
+        
         /// <summary>
-        /// 检查所有城市是否都属于玩家国家的国王
+        /// 检查所有城池是否都属于玩家国家的国王
         /// </summary>
         /// <returns></returns>
         private bool PlayerHaveAllCity()
         {
             byte count = CountryListCache.GetCountryByCountryId(playerCountryId).GetHaveCityNum();
             byte cityNum = CityListCache.GetCityNum(); // 总城池数量
-            return count == cityNum; // 所有城市都属于玩家国家的国王，返回true
+            return count == cityNum; // 所有城池都属于玩家国家的国王，返回true
         }
 
         /// <summary>
-        /// 检查玩家国家是否没有城市
+        /// 检查玩家国家是否没有城池
         /// </summary>
         /// <returns></returns>
         private bool PlayerHaveNoneCity()
         {
             Country userCountry = CountryListCache.GetCountryByCountryId(playerCountryId);
-            // 如果玩家国家存在且拥有的城市数量不为0，则返回false，否则返回true
+            // 如果玩家国家存在且拥有的城池数量不为0，则返回false，否则返回true
             return !(userCountry != null && userCountry.GetHaveCityNum() != 0);
         }
-
-
-        /// <summary> 
-        /// 处理游戏中的月度事件
-        /// </summary>
-        private IEnumerator MonthlyEvent()
-        {
-            Debug.Log("月度事件处理");
-            _disasterCount = 0; // 初始化灾难计数为 0
-            _disasterCity = new List<byte>(); // 初始化灾难城市列表
-            // 检查玩家是否没有城市
-            if (PlayerHaveNoneCity())
-            {
-                PlayingState = GameState.GameOver;
-                uiGlobe.UpdateTurnInfo(String.Empty);
-                uiGlobe.GameEnd();
-                yield break; // 结束方法
-            }
-
-            // 检查玩家是否拥有所有城市
-            if (PlayerHaveAllCity())
-            {
-                PlayingState = GameState.GameSuccess;
-                uiGlobe.UpdateTurnInfo(String.Empty);
-                uiGlobe.GameEnd();
-                yield break; // 结束方法
-            }
-
-            yield return Uprising();
-            // 检查是否发生旱灾、洪灾和蝗灾
-            CheckForDisasters(DisasterRate_i);
-
-            // 如果没有以上灾难，检查是否发生瘟疫
-            if (_disasterCount < 1)
-            {
-                CheckForDisasters(PlagueRate);
-            }
-            else
-            {
-                yield return DisastersType();// 处理三灾类型
-            }
-
-            if (_disasterCount > 0)
-            {
-                // 对发生灾害的的城市 ID 处理瘟疫
-                for (short i = 0; i < _disasterCount; i++)
-                    yield return HandlePlague(_disasterCity[i]);
-            }
-
-            // 检查百姓叛乱
-            HandleTurmoil();
-
-            // 自动治理所有城市
-            AutoInteriorAllCity();
-
-            // 处理城市中的将军
-            HandleCityGenerals();
-
-            // 按照月份处理定期事件
-            HandleMonthlyEvents();
-
-            // 处理回合技能事件
-            HandleTurnSkills(); 
-
-            // 更新势力联盟
-            UpdateAlliance();
-
-            // 在野武将移动
-            TalentGenMove();
-        }
-
-
-        /// <summary>
-        /// 检查指定灾难发生的城市
-        /// </summary>
-        /// <param name="disasterRateFunc">灾难率检查函数</param>
-        private void CheckForDisasters(Func<bool> disasterRateFunc)
-        {
-            for (byte cityId = 1; cityId < CityListCache.CITY_NUM; cityId++)
-            {
-                if (disasterRateFunc())
-                {
-                    _disasterCount++;
-                    _disasterCity.Add (cityId);
-                }
-            }
-        }
-
-
-
-        // 判断是否为特定事件
-        bool DisasterRate_i()
-        {
-            // 判断当前月份是否在3月到11月之间
-            if (month < 11 && month > 2)
-            {
-                // 随机生成一个0到499之间的整数，并判断是否小于4
-                return (Random.Range(0, 500) < 5);
-            }
-            return false;
-        }
-
-        // 判断是否为特定事件
-        bool PlagueRate()
-        {
-            // 随机生成一个0到499之间的整数，并判断是否小于等于1
-            return (Random.Range(0, 500) <= 2);
-        }
+        
 
         /// <summary>
         /// 起义
         /// </summary>
         /// <returns></returns>
-        private IEnumerator Uprising()
+        private void Uprising(Action onComplete)
         {
-            foreach (var city in CityListCache.cityDictionary.Values)
+            bool isUprising = false;  // 初始化是否发生起义
+            foreach (var city in CityListCache.cityDictionary.Values)// 遍历所有城池
             {
                 if (city.IsRebel())
                 {
-                    short prefectId = city.prefectId;  // 获取城市太守ID
+                    short prefectId = city.prefectID;  // 获取城池太守ID
                     General general = GeneralListCache.GetGeneral(prefectId);  // 获取将领对象
-                    Country oldCountry = CountryListCache.GetCountryByKingId(city.cityBelongKing);  // 获取旧国家
-                    oldCountry.RemoveCity(city.cityId);  // 从旧国家移除该城市
+                    Country oldCountry = CountryListCache.GetCountryByKingId(city.ownerID);  // 获取旧国家
+                    oldCountry.RemoveCity(city.cityID);  // 从旧国家移除该城池
                     Country newCountry = new Country();  // 创建新国家
                     newCountry.countryId = (byte)(CountryListCache.GetCountrySize() + 1);  // 设置新国家ID
                     newCountry.countryKingId = general.generalId;  // 设置新国家的国王ID
-                    city.prefectId = general.generalId;  // 设置城市的太守为该将领
-                    newCountry.AddCity(city.cityId);  // 新国家添加城市
+                    city.prefectID = general.generalId;  // 设置城池的太守为该将领
+                    newCountry.AddCity(city.cityID);  // 新国家添加城池
                     CountryListCache.AddCountry(newCountry);  // 将新国家添加到国家缓存
                     CountryListCache.countrySequence.Insert(0, newCountry.countryId);  // 插入势力顺序
-                    string text = general.generalName + "在" + city.cityName + "起义！";
-                    yield return uiGlobe.tips.ShowTurnTips(text, GameState.Rebel);
-                    Debug.Log(text);  // 输出起义日志
-                    yield break;
+                    GameInfo.ShowInfo = general.generalName + "在" + city.cityName + "起义！";
+                    Debug.Log(ShowInfo);  // 输出起义日志
+                    isUprising = true;
+                    break;
                 }
             }
             
+            if (isUprising)
+            {
+                uiGlobe.tips.ShowTurnTipsWithConfirm(ShowInfo, GameState.Rebel, onComplete);
+            }
+            else
+            {
+                onComplete?.Invoke();
+            }
         }
 
         /// <summary>
-        /// 处理旱灾、洪灾、蝗灾三种灾难事件种类
+        /// 检查指定灾难发生的城池
         /// </summary>
-        private IEnumerator DisastersType()
+        /// <param name="onComplete">完成回调</param>
+        private void CheckForDisasters(Action onComplete)
         {
-            for (short i = 0; i < _disasterCount; i++)
+            _disasterCity.Clear();  // 初始化是否发生灾难
+            
+            for (byte cityId = 1; cityId < CityListCache.CITY_NUM; cityId++)
             {
-                Disaster(_disasterCity[i]); // 处理每个城市的洪水灾难
+                // 只处理存在的城池
+                City city = CityListCache.GetCityByCityId(cityId);
+                if (city == null) continue;
+
+                bool disasterOccurred = false;
+
+                // 1. 检查旱灾、洪灾、蝗灾（三灾）
+                if (NaturalDisasterRate(city, out var disasterType))
+                {
+                    _disasterCity.TryAdd(cityId, disasterType);
+                    disasterOccurred = true;
+                } 
+                
+
+                // 2. 如果没有三灾，检查瘟疫
+                if (!disasterOccurred)
+                {
+                    if (PlagueRate(city))
+                    {
+                        _disasterCity.TryAdd(cityId, GameState.Plague);
+                        disasterOccurred = true;
+                    }
+                }
+
+                // 3. 如果还没有灾难且城池属于某势力，检查骚乱
+                if (!disasterOccurred && city.ownerID > 0)
+                {
+                    if (TurmoilRate(city))
+                    {
+                        _disasterCity.TryAdd(cityId, GameState.Turmoil);
+                    }
+                }
+            }
+
+            // 灾难提示逐个播放
+            if (_disasterCity.Count > 0)
+            {
+                PlayDisasterTips(onComplete);
+            }
+            else
+            {
+                onComplete?.Invoke();
+            }
+        }
 
 
-                string text = string.Empty;
-                int disasterKind = Random.Range(0, 3); // 设置随机事件 ID
+        private void PlayDisasterTips(Action onComplete)
+        {
+            var disasterQueue = new EventQueueManager();
+
+            foreach (var record in _disasterCity)
+            {
+                disasterQueue.AddEvent(next =>
+                {
+                    uiGlobe.tips.ShowTurnTipsWithConfirm(
+                        DisastersResult(record.Key, record.Value), record.Value, next);
+                });
+            }
+
+            disasterQueue.AddEvent(next =>
+            {
+                Debug.Log("全部灾难提示完成");
+                onComplete?.Invoke();
+            });
+
+            disasterQueue.Start();
+        }
+        
+
+
+        // 判断是否发生旱灾、洪灾和蝗灾并处理返回是否发生灾难
+        private bool NaturalDisasterRate(City city, out GameState disasterType)
+        {
+            disasterType = GameState.None;
+            if (Random.Range(0, 500) < 5)
+            {
+                HandleNaturalDisaster(city); // 处理具体影响
+                int disasterKind = Random.Range(0, 3);
+
                 switch (disasterKind)
                 {
                     case 0:
-                        text = CityListCache.GetCityByCityId(_disasterCity[i]).cityName + "发生旱灾";
-                        yield return uiGlobe.tips.ShowTurnTips(text, GameState.Drought);
+                        disasterType = GameState.Drought;
                         break;
                     case 1:
-                        text = CityListCache.GetCityByCityId(_disasterCity[i]).cityName + "发生洪涝";
-                        yield return uiGlobe.tips.ShowTurnTips(text, GameState.Flood);
+                        disasterType = GameState.Flood;
                         break;
                     case 2:
-                        text = CityListCache.GetCityByCityId(_disasterCity[i]).cityName + "发生蝗灾";
-                        yield return uiGlobe.tips.ShowTurnTips(text, GameState.LocustPlague);
+                        disasterType = GameState.LocustPlague;
                         break;
                 }
+                return true;
             }
-            _disasterCount = 0; // 重置灾难计数
+            return false;
         }
 
-        /// <summary>
-        /// 处理城市的瘟疫灾害
-        /// </summary>
-        /// <param name="cityId"></param>
-        private IEnumerator HandlePlague(byte cityId)
+        // 判断是否发生瘟疫
+        bool PlagueRate(City city)
         {
-            // 获取指定ID的城市
-            City city = CityListCache.GetCityByCityId(cityId);
-            // 获取城市中的将军ID数组
-            short[] officeGeneralIdArray = city.GetOfficerIds();
-
-            // 如果城市的洪水控制小于90
-            if (city.floodControl < 90)
+            // 随机生成一个0到499之间的整数，并判断是否小于等于1
+            if (Random.Range(0, 500) <= 2)
             {
-                // 遍历城市中的将军，减少将军的士兵数量
-                for (byte byte1 = 0; byte1 < city.GetCityOfficerNum(); byte1 = (byte)(byte1 + 1))
-                {
-                    General general = GeneralListCache.GetGeneral(officeGeneralIdArray[byte1]);
-                    general.generalSoldier = (short)(general.generalSoldier - DisasterLoss(general.generalSoldier, city.floodControl, 90));
-                }
-                // 减少城市储备士兵数量和统治力
-                city.cityReserveSoldier -= DisasterLoss(city.cityReserveSoldier, city.floodControl, 90);
-                city.rule = (byte)(city.rule - DisasterLoss(city.rule, city.floodControl, 90));
+                HandlePlague(city); // 处理具体影响
+                return true;
             }
-
-            // 如果城市的洪水控制小于99
-            if (city.floodControl < 99)
-                // 减少城市人口
-                city.population -= DisasterLoss(city.population, city.floodControl, 99);
-
-            // 如果城市的洪水控制大于0
-            if (city.floodControl > 0)
-                // 减少洪水控制值，每次减少1/10加1
-                city.floodControl = (byte)(city.floodControl - city.floodControl / 10 + 1);
-
-            string text = CityListCache.GetCityByCityId(_disasterCity[0]).cityName + "发生瘟疫";
-            yield return uiGlobe.tips.ShowTurnTips(text, GameState.Plague);
-        }
-
-
-        // 计算某值
-        int DisasterLoss(int i1, byte byte0, int j1)
-        {
-            i1 /= 2;
-            return byte0 * i1 / j1;
-        }
-
-
-        // 处理城市的洪水灾难
-        private void Disaster(byte byte0)
-        {
-            // 获取指定ID的城市
-            City city = CityListCache.GetCityByCityId(byte0);
-
-            // 如果城市的洪水控制小于90
-            if (city.floodControl < 90)
+            else
             {
-                // 减少城市的金钱、食物和统治力
-                city.SubGold((short)DisasterLoss(city.GetMoney(), city.floodControl, 90));
-                city.SubFood((short)DisasterLoss(city.GetFood(), city.floodControl, 90));
-                city.rule = (byte)(city.rule - DisasterLoss(city.rule, city.floodControl, 90));
-            }
-
-            // 如果城市的洪水控制小于99
-            if (city.floodControl < 99)
-            {
-                // 减少城市的贸易和农业
-                city.trade = (short)(city.trade - DisasterLoss(city.trade, city.floodControl, 99));
-                city.agro = (short)(city.agro - DisasterLoss(city.agro, city.floodControl, 99));
-            }
-
-            // 如果城市的洪水控制大于0
-            if (city.floodControl > 0)
-                // 减少洪水控制值，每次减少1/10加1
-                city.floodControl = (byte)(city.floodControl - city.floodControl / 10 + 1);
-        }
-
-
-        /// <summary>
-        /// 处理灾难和骚乱
-        /// </summary>
-        private void HandleTurmoil()
-        {
-            for (byte cityId = 1; cityId < CityListCache.CITY_NUM; cityId++)
-            {
-                City city = CityListCache.GetCityByCityId(cityId);
-                if (city.cityBelongKing > 0 && IsTurmoil(cityId))
-                {
-                    _disasterCount++;
-                    Debug.Log(_disasterCount);
-                    this._disasterCity[_disasterCount] = cityId;
-                }
-            }
-
-            if (_disasterCount > 0)
-            {
-                for (short i = 0; i < _disasterCount; i++)
-                    TurmoilLowRule(this._disasterCity[i]);
-
-                PlayingState = GameState.Turmoil; // 设置事件 ID
-                _disasterCount = 0; // 重置灾难计数
-                AIStateMachine.AIRebuildCity(); // Ai自动灾后重建所有城市
+                return false;
             }
         }
 
         /// <summary>
         /// 检查是否有骚乱的可能性
         /// </summary>
-        /// <param name="cityId">城市 ID</param>
+        /// <param name="city">城池</param>
         /// <returns>是否叛乱</returns>
-        private bool IsTurmoil(byte cityId)
+        private bool TurmoilRate(City city)
         {
-            City city = CityListCache.GetCityByCityId(cityId);
-            if (city.rule < 15)
+            byte rule = city.GetRule();
+
+            int chance = rule switch
             {
-                // 计算叛乱发生的概率
-                int i1 = city.rule * 10 / 15 + 80;
-                if (Random.Range(0, 101) >= i1)
-                    return true;
-            }
-            else if (city.rule < 30)
+                < 15 => rule * 10 / 15 + 80,
+                < 30 => (rule - 15) / 3 + 90,
+                < 40 => (rule - 30) / 5 + 98,
+                < 60 => (rule - 40) / 5 + 998,
+                _ => 1000 // 极小概率
+            };
+
+            int random = (rule < 60) ? Random.Range(0, 101) : Random.Range(0, 1001);
+            if (random >= chance)
             {
-                int j1 = (city.rule - 15) / 3 + 90;
-                if (Random.Range(0, 101) >= j1)
-                    return true;
-            }
-            else if (city.rule < 40)
-            {
-                int k1 = (city.rule - 30) / 5 + 98;
-                if (Random.Range(0, 101) >= k1)
-                    return true;
-            }
-            else if (city.rule < 60)
-            {
-                int l1 = (city.rule - 40) / 5 + 998;
-                if (Random.Range(0, 1001) >= l1)
-                    return true;
+                HandleTurmoil(city); // 处理具体影响
+                return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// 处理旱灾、洪灾、蝗灾三种灾难事件种类
+        /// </summary>
+        private string DisastersResult(byte cityId, GameState disasterType)
+        {
+            string message = CityListCache.GetCityByCityId(cityId).cityName;
+            
+            switch (disasterType)
+            {
+                case GameState.Drought:
+                    message += "发生旱灾";
+                    break;
+                case GameState.Flood:
+                    message += "发生洪涝";
+                    break;
+                case GameState.LocustPlague:
+                    message += "发生蝗灾";
+                    break;
+                case GameState.Plague:
+                    message += "发生瘟疫";
+                    break;
+                case GameState.Turmoil:
+                    message += "发生骚乱";
+                    break;
+            }
+            return message;
+        }
+
+        
+        // 计算旱灾、洪水、蝗灾的灾难损失值
+        int DisasterLoss(int param, byte floodControl, int i)
+        {
+            param /= 2;
+            return floodControl * param / i;
+        }
+
+
+        // 处理城池的旱灾、洪水和蝗灾灾难
+        private void HandleNaturalDisaster(City city)
+        {
+            // 获取指定ID的城池
+            byte floodControl = city.GetFloodControl();  // 获取城池的洪水控制值
+
+            // 如果城池的洪水控制小于90
+            if (floodControl < 90)
+            {
+                // 减少城池的金钱、食物和统治力
+                city.SubGold(DisasterLoss(city.GetMoney(), floodControl, 90));
+                city.SubFood(DisasterLoss(city.GetFood(), floodControl, 90));
+                city.SubRule(DisasterLoss(city.GetRule(), floodControl, 90));
+            }
+
+            // 如果城池的洪水控制小于99
+            if (floodControl < 99)
+            {
+                // 减少城池的贸易和农业
+                city.SubTrade(DisasterLoss(city.GetTrade(), floodControl, 99));
+                city.SubAgro(DisasterLoss(city.GetAgro(), floodControl, 99));
+            }
+
+            // 如果城池的洪水控制大于0
+            if (floodControl > 0)
+                // 减少洪水控制值，每次减少1/10加1
+                city.SubFloodControl(floodControl / 10 + 1);
         }
 
 
 
         /// <summary>
-        /// 处理城市的叛乱灾难
+        /// 处理城池的瘟疫灾害
         /// </summary>
-        /// <param name="cityId">城市 ID</param>
-        private void TurmoilLowRule(byte cityId)
+        /// <param name="city">城池</param>
+        private void HandlePlague(City city)
         {
-            int i1 = 0;
-            // 获取指定ID的城市
-            City city = CityListCache.GetCityByCityId(cityId);
-            // 获取城市中的将军ID数组
+            byte floodControl = city.GetFloodControl();  // 获取城池的洪水控制值
+            // 获取城池中的将军ID数组
             short[] officeGeneralIdArray = city.GetOfficerIds();
 
-            // 根据城市的统治度来处理不同的情况
-            if (city.rule < 15)
+            // 如果城池的洪水控制小于90
+            if (floodControl < 90)
             {
-                // 统治度小于15，城市的各种资源减少
-                city.population /= 3;
-                city.agro = (short)(city.agro / 3);
-                city.trade = (short)(city.trade / 3);
-                city.SetMoney((short)(city.GetMoney() / 2));
-                city.SetFood((short)(city.GetFood() / 2));
-                city.rule = (byte)((city.rule - Random.Range(0,15)));
-                city.cityReserveSoldier -= Random.Range(city.cityReserveSoldier * 1 / 3,city.cityReserveSoldier* 2 / 3);
-                for (byte byte1 = 0; byte1 < city.GetCityOfficerNum(); byte1 = (byte)(byte1 + 1))
+                // 遍历城池中的将军，减少将军的士兵数量
+                for (byte i = 0; i < city.GetCityOfficerNum(); i++)
                 {
-                    General general = GeneralListCache.GetGeneral(officeGeneralIdArray[byte1]);
-                    general.generalSoldier -= (short)Random.Range(general.generalSoldier *1/3,general.generalSoldier* 2/3);
-                    i1 += general.generalSoldier;
+                    General general = GeneralListCache.GetGeneral(officeGeneralIdArray[i]);
+                    general.soldiers = (short)(general.soldiers - DisasterLoss(general.soldiers, floodControl, 90));
+                }
+                // 减少城池储备士兵数量和统治力
+                city.reserveSoldiers -= DisasterLoss(city.reserveSoldiers, floodControl, 90);
+                city.SubRule(DisasterLoss(city.GetRule(), floodControl, 90));
+            }
+
+            // 如果城池的洪水控制小于99
+            if (floodControl < 99)
+                // 减少城池人口
+                city.SubPopulation(DisasterLoss(city.GetPopulation(), floodControl, 99));
+
+            // 如果城池的洪水控制大于0
+            if (floodControl > 0)
+                // 减少洪水控制值，每次减少1/10加1
+                city.SubFloodControl(floodControl / 10 + 1);
+        }
+
+        
+        /// <summary>
+        /// 处理城池的叛乱灾难
+        /// </summary>
+        /// <param name="city">城池</param>
+        private void HandleTurmoil(City city)
+        {
+            int i1 = 0;
+            // 获取指定ID的城池
+            byte rule = city.GetRule();
+            short gold = city.GetMoney();
+            short food = city.GetFood();
+            short agro = city.GetAgro();
+            short trade = city.GetTrade();
+            int population = city.GetPopulation();
+            // 获取城池中的将军ID数组
+            short[] officeGeneralIdArray = city.GetOfficerIds();
+
+            // 根据城池的统治度来处理不同的情况
+            if (rule < 15)
+            {
+                // 统治度小于15，城池的各种资源减少
+                city.SetPopulation(population / 3);
+                city.SetAgro(agro / 3);
+                city.SetTrade(trade / 3);
+                city.SetMoney(gold / 2);
+                city.SetFood(food / 2);
+                city.SubRule(Random.Range(0,15));
+                city.reserveSoldiers -= Random.Range(city.reserveSoldiers * 1 / 3,city.reserveSoldiers* 2 / 3);
+                for (byte i = 0; i < city.GetCityOfficerNum(); i++)
+                {
+                    General general = GeneralListCache.GetGeneral(officeGeneralIdArray[i]);
+                    general.soldiers -= (short)Random.Range(general.soldiers *1/3,general.soldiers* 2/3);
+                    i1 += general.soldiers;
                 }
             }
-            else if (city.rule < 30)
+            else if (rule < 30)
             {
-                // 统治度在15到30之间，城市的各种资源减少
-                city.population /= 2;
-                city.agro = (short)(city.agro / 2);
-                city.trade = (short)(city.trade / 2);
-                city.SetMoney((short)(city.GetMoney() * 3 / 7));
-                city.SetFood((short)(city.GetFood() * 3 / 7));
-                city.rule = (byte)((city.rule - Random.Range(10, 20)));
-                city.cityReserveSoldier -= Random.Range(city.cityReserveSoldier * 1 / 4, city.cityReserveSoldier * 1 / 2);
-                for (byte byte2 = 0; byte2 < city.GetCityOfficerNum(); byte2 = (byte)(byte2 + 1))
+                // 统治度在15到30之间，城池的各种资源减少
+                city.SetPopulation(population / 2);
+                city.SetAgro(agro / 2);
+                city.SetTrade(trade / 2);
+                city.SetMoney(gold * 3 / 7);
+                city.SetFood(food * 3 / 7);
+                city.SubRule(Random.Range(10, 20));
+                city.reserveSoldiers -= Random.Range(city.reserveSoldiers * 1 / 4, city.reserveSoldiers * 1 / 2);
+                for (byte i = 0; i < city.GetCityOfficerNum(); i++)
                 {
-                    General general = GeneralListCache.GetGeneral(officeGeneralIdArray[byte2]);
-                    general.generalSoldier -= (short)Random.Range(general.generalSoldier * 1 / 4, general.generalSoldier * 1 / 2);
-                    i1 += general.generalSoldier;
+                    General general = GeneralListCache.GetGeneral(officeGeneralIdArray[i]);
+                    general.soldiers -= (short)Random.Range(general.soldiers * 1 / 4, general.soldiers * 1 / 2);
+                    i1 += general.soldiers;
                 }
             }
             else
             {
-                // 统治度在30以上，城市的各种资源减少
-                city.population = city.population * 2 / 3;
-                city.agro = (short)(city.agro * 2 / 3);
-                city.trade = (short)(city.trade * 2 / 3);
-                city.SetMoney((short)(city.GetMoney() * 1 / 7));
-                city.SetFood((short)(city.GetFood() * 1 / 7));
-                city.rule = (byte)((city.rule - Random.Range(15, 25)));
-                city.cityReserveSoldier -= Random.Range(city.cityReserveSoldier * 1 / 5, city.cityReserveSoldier * 1 / 4);
-                for (byte byte3 = 0; byte3 < city.GetCityOfficerNum(); byte3 = (byte)(byte3 + 1))
+                // 统治度在30以上，城池的各种资源减少
+                city.SetPopulation(population * 2 / 3);
+                city.SetAgro(agro * 2 / 3);
+                city.SetTrade(trade * 2 / 3);
+                city.SetMoney(gold * 1 / 7);
+                city.SetFood(food * 1 / 7);
+                city.SubRule(Random.Range(15, 25));
+                city.reserveSoldiers -= Random.Range(city.reserveSoldiers * 1 / 5, city.reserveSoldiers * 1 / 4);
+                for (byte i = 0; i < city.GetCityOfficerNum(); i++)
                 {
-                    General general = GeneralListCache.GetGeneral(officeGeneralIdArray[byte3]);
-                    general.generalSoldier -= (short)Random.Range(general.generalSoldier * 1 / 5, general.generalSoldier * 1 / 4);
-                    i1 += general.generalSoldier;
+                    General general = GeneralListCache.GetGeneral(officeGeneralIdArray[i]);
+                    general.soldiers -= (short)Random.Range(general.soldiers * 1 / 5, general.soldiers * 1 / 4);
+                    i1 += general.soldiers;
                 }
             }
         }
@@ -769,43 +810,36 @@ namespace TurnClass
 
 
         /// <summary>
-        /// 处理城市中的将军逻辑
+        /// 处理城池中的将军逻辑
         /// </summary>
-        private void HandleCityGenerals()
+        private void HandleCityGenerals(Action onComplete)
         {
             short userKingId = CountryListCache.GetCountryByCountryId(playerCountryId).countryKingId; // 获取玩家国王 ID
 
             for (byte cityId = 1; cityId < CityListCache.CITY_NUM; cityId++)
             {
                 City city = CityListCache.GetCityByCityId(cityId);
-                if (city.cityBelongKing > 0)
+                if (city.ownerID > 0)
                 {
-                    HandleGeneralAssignments(city, userKingId); // 处理将军任命
+                    if (city.ownerID != userKingId)
+                    {
+                        city.AutoAppointPrefect(); // 任命城池长
+                        RandomlyAddGeneral(city); // 随机添加将军
+                    }
                     city.SoldierEatFood(); // 士兵吃粮食
                     city.PaySalaries(); // 支付工资
                     BaseGeneralTreat(city); // 更新将军状态
                 }
             }
+            
+            onComplete?.Invoke();
         }
+        
 
         /// <summary>
-        /// 处理AI将军任命和随机搜索事件
+        /// 随机添加AI在野将军
         /// </summary>
-        /// <param name="city">城市实例</param>
-        /// <param name="userKingId">用户国王 ID</param>
-        private void HandleGeneralAssignments(City city, short userKingId)
-        {
-            if (city.cityBelongKing != userKingId)
-            {
-                city.AppointmentPrefect(); // 任命城市长
-                RandomlyAddGeneral(city); // 随机添加将军
-            }
-        }
-
-        /// <summary>
-        /// 随机添加在野将军
-        /// </summary>
-        /// <param name="city">城市实例</param>
+        /// <param name="city">城池实例</param>
         private void RandomlyAddGeneral(City city)
         {
             if (Random.Range(0, 6) < 1)
@@ -825,7 +859,7 @@ namespace TurnClass
         /// <summary>
         /// 基本回复受伤将军的状态
         /// </summary>
-        /// <param name="city">城市实例</param>
+        /// <param name="city">城池实例</param>
         private void BaseGeneralTreat(City city)
         {
             short[] officeGeneralIdArray = city.GetOfficerIds();
@@ -833,10 +867,10 @@ namespace TurnClass
             foreach (short id in officeGeneralIdArray)
             {
                 General general = GeneralListCache.GetGeneral(id);
-                if (general.GetCurPhysical() < general.maxPhysical)
+                if (general.GetHP() < general.maxHealth)
                 {
                     byte addPhysical = (byte)(1 + Random.Range(0, 3));
-                    general.AddCurPhysical(addPhysical);
+                    general.AddHP(addPhysical);
                 }
 
             }
@@ -846,36 +880,40 @@ namespace TurnClass
         /// <summary>
         /// 处理按月的定期事件
         /// </summary>
-        private void HandleMonthlyEvents()
+        private void HandleMonthlyEvents(Action onComplete)
         {
-            if (month == 4 || month == 8 || month == 12)
-            {
-                // 遍历所有城市 ID
-                for (byte cityId = 1; cityId < CityListCache.CITY_NUM; cityId = (byte)(cityId + 1))
-                {
-                    // 如果城市的国王 ID 大于 0
-                    if ((CityListCache.GetCityByCityId(cityId)).cityBelongKing > 0)
-                        RegularTaxMoney(cityId); // 调用 RegularTaxMoney 方法
-                }
-                PlayingState=GameState.MoneyTax;
-            }
-            else if (month == 5 || month == 10)
-            {
-                // 遍历所有城市 ID
-                for (byte cityId = 1; cityId < CityListCache.CITY_NUM; cityId = (byte)(cityId + 1))
-                {
-                    // 如果城市的国王 ID 大于 0
-                    if ((CityListCache.GetCityByCityId(cityId)).cityBelongKing > 0)
-                        RegularTaxFood(cityId); // 调用 RegularTaxFood 方法
-                }
-                PlayingState=GameState.FoodTax;
-            }
-
             if (month == 3 || month == 6 || month == 9 || month == 12)
             {
                 HandleGeneralLoyaltyDecay(); // 处理将军忠诚度衰减
             }
-
+            if (month == 4 || month == 8 || month == 12)
+            {
+                // 遍历所有城池 ID
+                for (byte cityId = 1; cityId < CityListCache.CITY_NUM; cityId = (byte)(cityId + 1))
+                {
+                    // 如果城池的国王 ID 大于 0
+                    if ((CityListCache.GetCityByCityId(cityId)).ownerID > 0)
+                        RegularTaxMoney(cityId); // 调用 RegularTaxMoney 方法
+                }
+                PlayingState = GameState.Tax;
+                uiGlobe.tips.ShowTurnTipsWithConfirm("收金的季度到了!", GameState.Tax, onComplete);
+            }
+            else if (month == 5 || month == 10)
+            {
+                // 遍历所有城池 ID
+                for (byte cityId = 1; cityId < CityListCache.CITY_NUM; cityId = (byte)(cityId + 1))
+                {
+                    // 如果城池的国王 ID 大于 0
+                    if ((CityListCache.GetCityByCityId(cityId)).ownerID > 0)
+                        RegularTaxFood(cityId); // 调用 RegularTaxFood 方法
+                }
+                PlayingState = GameState.Harvest;
+                uiGlobe.tips.ShowTurnTipsWithConfirm("收粮的季度到了!", GameState.Harvest, onComplete);
+            }
+            else
+            {
+                onComplete?.Invoke();
+            }
         }
 
     
@@ -888,12 +926,12 @@ namespace TurnClass
         /// <param name="cityId"></param>
         private void RegularTaxMoney(byte cityId)
         {
-            // 获取指定ID的城市
+            // 获取指定ID的城池
             City city = CityListCache.GetCityByCityId(cityId);
             // 计算金钱收入
             int income = city.MoneyIncome();
-            // 如果城市不属于玩家国家，则金钱收入增加20%
-            if (city.cityBelongKing != (CountryListCache.GetCountryByCountryId(playerCountryId)).countryKingId)
+            // 如果城池不属于玩家国家，则金钱收入增加20%
+            if (city.ownerID != (CountryListCache.GetCountryByCountryId(playerCountryId)).countryKingId)
                 income = (int)(income * 1.2f);
             // 处理风水技能
             bool fengShui = false;
@@ -902,7 +940,7 @@ namespace TurnClass
                 if (GeneralListCache.GetGeneral(generalId).HasSkill(4, 5)) fengShui = true;
             }
             if (fengShui) income += income /2;
-            // 添加金钱到城市
+            // 添加金钱到城池
             city.AddGold((short)income);
         }
 
@@ -913,12 +951,12 @@ namespace TurnClass
         /// <param name="cityId"></param>
         private void RegularTaxFood(byte cityId)
         {
-            // 获取指定ID的城市
+            // 获取指定ID的城池
             City city = CityListCache.GetCityByCityId(cityId);
             // 计算食物产量
             int income = city.FoodIncome();
-            // 如果城市不属于玩家国家，则食物产量增加20%
-            if (city.cityBelongKing != (CountryListCache.GetCountryByCountryId(playerCountryId)).countryKingId)
+            // 如果城池不属于玩家国家，则食物产量增加20%
+            if (city.ownerID != (CountryListCache.GetCountryByCountryId(playerCountryId)).countryKingId)
                 income = (int)(income * 1.2D);
             // 处理风水技能
             bool fengShui = false;
@@ -927,10 +965,13 @@ namespace TurnClass
                 if (GeneralListCache.GetGeneral(generalId).HasSkill(4, 5)) fengShui = true;
             }
             if (fengShui) income += income /2;
-            // 添加食物到城市
+            // 添加食物到城池
             city.AddFood((short)income);
         }
 
+        /// <summary>
+        /// 处理将军欠薪的忠诚度衰减
+        /// </summary>
         private void HandleGeneralLoyaltyDecay()
         {
             for (byte b = 1; b < CityListCache.CITY_NUM; b = (byte)(b + 1))
@@ -938,14 +979,14 @@ namespace TurnClass
                 City city = CityListCache.GetCityByCityId(b);
                 short[] officeGeneralIdArray = city.GetOfficerIds();
 
-                // 遍历城市中的将军
+                // 遍历城池中的将军
                 for (int j = 0; j < city.GetCityOfficerNum(); j++)
                 {
                     short generalId = officeGeneralIdArray[j];
-                    short kingId = city.cityBelongKing;
+                    short kingId = city.ownerID;
                     General general = GeneralListCache.GetGeneral(generalId);
 
-                    // 计算将军与城市国王的阶段差
+                    // 计算将军与城池国王的阶段差
                     int d = GeneralListCache.GetdPhase(general.phase, (GeneralListCache.GetGeneral(kingId)).phase);
 
                     // 如果阶段差大于 10 且将军的忠诚度不等于 100
@@ -956,7 +997,7 @@ namespace TurnClass
                         {
                             int val = d / 10;
                             val = Mathf.Max(0, general.GetLoyalty() - val);
-                            general.DecreaseLoyalty((byte)val); // 减少将军的忠诚度
+                            general.SubLoyalty((byte)val); // 减少将军的忠诚度
                         }
                     }
                 }
@@ -967,28 +1008,30 @@ namespace TurnClass
         /// <summary>
         /// 处理回合技能效果
         /// </summary>
-        private void HandleTurnSkills()
+        private void HandleMonthlySkills(Action onComplete)
         {
-            // 遍历所有城市 ID
+            bool isLoot = false;
+            ShowInfo = String.Empty;
+            // 遍历所有城池 ID
             for (byte i = 1; i < CityListCache.CITY_NUM; i++)
             {
                 City city = CityListCache.GetCityByCityId(i);
                 short[] officeGeneralIdArray = city.GetOfficerIds();
 
-                // 遍历城市中的将军
+                // 遍历城池中的将军
                 for (int j = 0; j < city.GetCityOfficerNum(); j++)
                 {
                     short id = officeGeneralIdArray[j];
                     General general = GeneralListCache.GetGeneral(id);
                     
                     // 处理义军技能
-                    if (general.HasSkill(4, 6) && city.cityReserveSoldier <= 10000 && city.population >= 20000) HandleYiJunSkill(city, general);
+                    if (general.HasSkill(4, 6) && city.reserveSoldiers <= 10000 && city.GetPopulation() >= 20000) HandleYiJunSkill(city, general);
                     // 处理内助神医技能
                     if (general.HasSkill(4, 7)) HandleNeiZhuSkill(officeGeneralIdArray);
                     // 处理仁义技能
                     if (general.HasSkill(4, 8)) HandleRenYiSkill(officeGeneralIdArray);
                     // 处理掠夺技能
-                    if (general.HasSkill(5, 1) && general.IQ >= Random.Range(0,120)) ExecuteLueDuo(city, general);
+                    if (general.HasSkill(5, 1) && general.wisdom >= Random.Range(0,120)) isLoot = ExecuteLueDuo(city, general);
                     // 处理能吏技能
                     if (general.HasSkill(5, 5)) HandleNengLiSkill(city, general);
                     // 处理练兵技能
@@ -997,16 +1040,25 @@ namespace TurnClass
                     if (general.HasSkill(5, 7)) HandleYanJiaoSkill(officeGeneralIdArray, general);
                 }
             }
+
+            if (isLoot)
+            {
+                uiGlobe.tips.ShowTurnTipsWithConfirm(ShowInfo, GameState.Plunder, onComplete);
+            }
+            else
+            {
+                onComplete?.Invoke();
+            }
         }
 
         // 义军技能效果
         private void HandleYiJunSkill(City city, General general)
         {
-            int addReserveSoldier = general.moral + city.population / 1000 + Random.Range(0, 200) - 100;
+            int addReserveSoldier = general.charm + city.GetPopulation() / 1000 + Random.Range(0, 200) - 100;
             if (addReserveSoldier >= 0)
             {
-                city.cityReserveSoldier += addReserveSoldier;
-                city.population -= addReserveSoldier;
+                city.reserveSoldiers += addReserveSoldier;
+                city.SubPopulation(addReserveSoldier);
             }
         }
 
@@ -1016,10 +1068,10 @@ namespace TurnClass
             foreach (short generalId in officeGeneralIdArray)
             {
                 General general = GeneralListCache.GetGeneral(generalId);
-                if (general.GetCurPhysical() < general.maxPhysical)
+                if (general.GetHP() < general.maxHealth)
                 {
                     byte addPhysical = (byte)Random.Range(10, 20);// 加上基础回复总范围[10,20]
-                    general.AddCurPhysical(addPhysical);
+                    general.AddHP(addPhysical);
                 }
             }
         }
@@ -1044,44 +1096,47 @@ namespace TurnClass
 
 
         // 掠夺技能效果
-        private void ExecuteLueDuo(City city, General general)
+        private bool ExecuteLueDuo(City city, General general)
         {
-            byte[] enemyCityIds = CountryListCache.getEnemyCityIdArray_new(city.cityId);
+            bool isLoot = false;
+            byte[] enemyCityIds = CountryListCache.getEnemyCityIdArray_new(city.cityID);
 
             foreach (byte enemyCityId in enemyCityIds)
             {
                 City enemyCity = CityListCache.GetCityByCityId(enemyCityId);
-                General prefectGeneral = GeneralListCache.GetGeneral(enemyCity.prefectId);
+                General prefectGeneral = GeneralListCache.GetGeneral(enemyCity.prefectID);
                 byte forceDifference = (byte)(general.force - prefectGeneral.force);
 
                 if (GetLueDuoByForceD(forceDifference) >= Random.Range(0, 70))
                 {
                     LueDuoNum(city, enemyCity);
+                    isLoot = true;
                     break; // 一旦成功掠夺，退出循环
                 }
             }
+            return isLoot;
         }
 
-        private IEnumerator LueDuoNum(City city, City enemyCity)
+        private void LueDuoNum(City city, City enemyCity)
         {
             short food = (short)LueDuoRate(enemyCity.GetFood(), city.GetFood());
             short money = (short)LueDuoRate(enemyCity.GetMoney(), city.GetMoney());
-            int population = LueDuoRate(enemyCity.population, city.population);
-            string text = $"{city.cityName}掠夺了{enemyCity.cityName}粮食：{food} 金：{money} 人口：{population}";
+            int population = LueDuoRate(enemyCity.GetPopulation(), city.GetPopulation());
+            string text = $"{enemyCity.cityName}被贼寇洗劫!";
 
-            // 减少敌方城市资源
+            // 减少敌方城池资源
             enemyCity.SubFood(food);
             enemyCity.SubGold(money);
             enemyCity.SubPopulation(population);
-
-            // 打印掠夺信息
-            yield return uiGlobe.tips.ShowTurnTips(text, GameState.Plunder);
-            Debug.Log(text);
-
-            // 增加本城市资源
+            
+            // 增加本城池资源
             city.AddFood(food);
             city.AddGold(money);
             city.AddPopulation(population);
+            
+            // 打印掠夺信息
+            Debug.Log($"{city.cityName}掠夺了{enemyCity.cityName}的粮:{food},金{money}！");
+            GameInfo.ShowInfo = text;
         }
 
         private int LueDuoRate(int enemyValue, int cityValue)
@@ -1105,24 +1160,23 @@ namespace TurnClass
         //能吏技能效果
         private void HandleNengLiSkill(City city, General general)
         {
-            if (general.political < Random.Range(0, 100))
+            if (general.govern < Random.Range(0, 100))
                 return;
 
             int random = Random.Range(0, 4);
             switch (random)
             {
                 case 0:
-                    city.agro = (short)Math.Min(city.agro + general.political / 10, 999);
+                    city.AddAgro(general.govern / 10);
                     break;
                 case 1:
-                    city.trade = (short)Math.Min(city.trade + general.political / 10, 999);
+                    city.AddTrade(general.govern / 10);
                     break;
                 case 2:
-                    city.population += general.political * 30;
-                    city.population = Math.Min(city.population, 990000);
+                    city.AddPopulation(general.govern * 30);
                     break;
                 case 3:
-                    city.floodControl = (byte)Math.Min(city.floodControl + Random.Range(0, 4), 99);
+                    city.AddRule(Random.Range(0, 4));
                     break;
             }
         }
@@ -1134,7 +1188,7 @@ namespace TurnClass
             foreach (short otherGeneralId in officeGeneralIdArray)
             {
                 General otherGeneral = GeneralListCache.GetGeneral(otherGeneralId);
-                otherGeneral.Addexperience(Random.Range(0, general.force));
+                otherGeneral.AddExperience(Random.Range(0, general.force));
             }
         }
     
@@ -1145,7 +1199,7 @@ namespace TurnClass
             foreach (short otherGeneralId in officeGeneralIdArray)
             {
                 General otherGeneral = GeneralListCache.GetGeneral(otherGeneralId);
-                otherGeneral.AddIqExp((byte)Random.Range(1, general.IQ / 10));
+                otherGeneral.AddIqExp((byte)Random.Range(1, general.wisdom / 10));
             }
         }
 
@@ -1154,15 +1208,16 @@ namespace TurnClass
     
 
         /// <summary>
-        /// 处理自动治理所有城市的逻辑
+        /// 处理自动治理所有城池的逻辑
         /// </summary>
-        private void AutoInteriorAllCity()
+        private void AutoManageCities(Action onComplete)
         {
-            AIStateMachine.AutoInteriorAllCity();
+            AITurn.AutoInteriorAllCity();
+            onComplete?.Invoke();
         }
 
     
-        private void UpdateAlliance()
+        private void UpdateAlliances(Action onComplete)
         {
             // 遍历所有国家
             foreach (var countryPair in CountryListCache.countryDictionary)
@@ -1189,13 +1244,14 @@ namespace TurnClass
                     }
                 }
             }
+            onComplete?.Invoke();
         }
 
         //TODO
         /// <summary>
         /// 处理已经发掘的人才将领的移动逻辑
         /// </summary>
-        void TalentGenMove()
+        void TalentGenMove(Action onComplete)
         {
             List<short> vector = new List<short>(); // 创建一个列表来存储将领ID
 
@@ -1226,18 +1282,17 @@ namespace TurnClass
                             }
                         }
 
-                        if (city.cityBelongKing > 0)
+                        if (city.ownerID > 0)
                         {
-                            General cityKing = GeneralListCache.GetGeneral(city.cityBelongKing);
-                            short kingPhase = cityKing.phase;
+                            General cityKing = GeneralListCache.GetGeneral(city.ownerID);
 
                             if (ev)
                             {
                                 // 如果找到符合条件的国家
                                 Country evCountry = CountryListCache.GetCountryByCountryId(evCountryId);
-                                if (evCountry != null && evCountry.countryKingId != city.cityBelongKing)
+                                if (evCountry != null && evCountry.countryKingId != city.ownerID)
                                 {
-                                    // 遍历符合条件的城市，并进行在野将领移动
+                                    // 遍历符合条件的城池，并进行在野将领移动
                                     foreach (var cityID in evCountry.cityIDs)
                                     {
                                         City otherCity = CityListCache.GetCityByCityId(cityID);
@@ -1250,7 +1305,7 @@ namespace TurnClass
                             }
                             else if (GeneralListCache.GetPhaseDifference(cityKing, general) > 5 || city.GetCityOfficerNum() >= 10)
                             {
-                                // 如果将领的阶段差距大于5，或者城市将领数量大于等于10
+                                // 如果将领的阶段差距大于5，或者城池将领数量大于等于10
                                 City moveCity = GetTalentMoveTargetCity(city);
                                 if (moveCity != null)
                                 {
@@ -1261,11 +1316,12 @@ namespace TurnClass
                     }
                 }
             }
+            onComplete?.Invoke();
         }
 
 
         /// <summary>
-        /// 获取在野将领可以移动到的目标城市
+        /// 获取在野将领可以移动到的目标城池
         /// </summary>
         /// <param name="curCity"></param>
         /// <returns></returns>
@@ -1338,7 +1394,7 @@ namespace TurnClass
                         City city = CityListCache.GetCityByCityId(i);
                         byte index;
 
-                        // 检查城市中的将领
+                        // 检查城池中的将领
                         for (index = 0; index < city.GetCityOfficerNum(); index++)
                         {
                             if (city.GetOfficerIds()[index] == general.generalId)
@@ -1348,7 +1404,7 @@ namespace TurnClass
                             }
                         }
 
-                        // 检查城市中的对手将领
+                        // 检查城池中的对手将领
                         for (index = 0; index < city.GetReservedGeneralNum(); index++)
                         {
                             if (city.GetReservedGeneralId(index) == general.generalId)

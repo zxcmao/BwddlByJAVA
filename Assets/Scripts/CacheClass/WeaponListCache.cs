@@ -31,7 +31,7 @@ public static class WeaponListCache
             Weapon weapon = new Weapon();
 
             // 设置武器ID
-            weapon.weaponId = CommonUtils.byte_bR_a(data[index++], random);
+            weapon.weaponID = CommonUtils.byte_bR_a(data[index++], random);
             // 获取武器名称的长度
             byte weaponNameLength = CommonUtils.byte_bR_a(data[index++], random);
 
@@ -46,20 +46,20 @@ public static class WeaponListCache
             // 读取武器价格
             byte byte0 = CommonUtils.byte_bR_a(data[index++], random);
             byte byte1 = CommonUtils.byte_bR_a(data[index++], random);
-            weapon.weaponPrice = (short)((byte1 << 8) | (byte0 & 0xFF));
+            weapon.price = (short)((byte1 << 8) | (byte0 & 0xFF));
 
             // 读取武器属性
-            weapon.weaponProperties = CommonUtils.byte_bR_a(data[index++], random);
+            weapon.property = CommonUtils.byte_bR_a(data[index++], random);
             // 读取武器重量
-            weapon.weaponWeight = CommonUtils.byte_bR_a(data[index++], random);
+            weapon.weight = CommonUtils.byte_bR_a(data[index++], random);
             // 读取武器类型
-            weapon.weaponType = CommonUtils.byte_bR_a(data[index++], random);
+            weapon.kind = CommonUtils.byte_bR_a(data[index++], random);
 
             // 将武器添加到列表中
             addWeapon(weapon);
 
             // 输出武器添加的日志
-            Debug.Log($"武器ID: {weapon.weaponId}, 名称: {weapon.weaponName}, 类型: {weapon.weaponType} 添加到缓存");
+            Debug.Log($"武器ID: {weapon.weaponID}, 名称: {weapon.weaponName}, 类型: {weapon.kind} 添加到缓存");
         }
 
         // 输出初始化完成的日志
@@ -69,7 +69,7 @@ public static class WeaponListCache
     // 添加武器到列表
     public static void AddWeapon(Weapon weapon)
     {
-        weaponDictionary.TryAdd(weapon.weaponId, weapon);
+        weaponDictionary.TryAdd(weapon.weaponID, weapon);
     }
 
     // 获取武器列表的大小

@@ -91,7 +91,7 @@ namespace War
                 }
                 else if (planIndex == 15)
                 {   //如果不需要再检测是否是奇门遁甲否则选地施放
-                    if(GeneralListCache.GetGeneral(WarManager.Instance.hmUnitObj.genID).generalSoldier < 100)
+                    if(GeneralListCache.GetGeneral(WarManager.Instance.hmUnitObj.genID).soldiers < 100)
                     {
                         UIWar.Instance.NotifyWarEvent("兵马不足施展本计");
                     }

@@ -39,7 +39,7 @@ namespace War
         public WarState warState;// 战争状态
         public BattleState battleState;// 战斗状态
         public byte curWarCityId;// 当前战争发生的城市ID
-        public byte departureCity;// 出发城池ID
+        public byte departureCityId;// 出发城池ID
         public byte day;// 天数
         public bool isHmDef;
 		
@@ -71,7 +71,7 @@ namespace War
         public AIWarStateMachine.WarStateMachine aiWarStateMachine;
         public Vector3 cameraPosition;
         public event Action OnWarOver;
-        
+        public event Action<WarState> OnWarStateChanged;
         // Awake 方法，确保单例实例并跨场景保留
         void Awake()
         {
@@ -81,18 +81,18 @@ namespace War
                 DontDestroyOnLoad(gameObject); // 跨场景保留
                 
                 //TODO 待删除调试战争信息
-                DataManagement.Instance.LoadAndInitializeData();
+                //DataManager.Instance.LoadAndInitializeData();
                 ReadMapData();
                 
                 isBattle = false;
-                GameInfo.playerCountryId = 1;
+                /*GameInfo.playerCountryId = 1;
                 GameInfo.curTurnCountryId = 10;
                 GameInfo.PlayingState = GameState.AIvsPlayer;
                 GameInfo.doCityId = 10;
                 GameInfo.targetCityId = 19;
                 GameInfo.targetGeneralIds = new List<short>() { 26, 34,44,55,9,10,6,52,14,32 };
                 GameInfo.optionalGeneralIds.Add(9999);
-                GameInfo.optionalGeneralIds.Add(9999);
+                GameInfo.optionalGeneralIds.Add(9999);*/
             }
             else
             {
@@ -104,14 +104,14 @@ namespace War
         {
             foreach (var cityID in CityListCache.cityDictionary.Keys)
             {
-                Instance.StartCoroutine(DataManagement.LoadMapAsync(cityID, (map) =>
+                Instance.StartCoroutine(DataManager.LoadMapAsync(cityID, (map) =>
                 {
                     // 读取地图数据
                     if (map != null)
                     {
                         Debug.Log(cityID +"地图加载成功！");
                         // 使用 warMap 进行逻辑处理
-                        DataManagement.maps.TryAdd(cityID, map);
+                        DataManager.maps.TryAdd(cityID, map);
                     }
                     else
                     {
@@ -128,14 +128,16 @@ namespace War
             if (!_allowedScenes.Contains(currentSceneName))
             {
                 Debug.Log($"当前场景 {currentSceneName} 不允许保留 WarManager，清理数据...");
+                ClearWarData();
                 Destroy(gameObject); // 销毁实例
             }
         }
-		
+        
         // 在场景加载完成后检查合法性
         private void OnEnable()
         {
             SceneManager.sceneLoaded += OnSceneLoaded;
+            
         }
 
         private void OnDisable()
@@ -152,12 +154,14 @@ namespace War
             }
             else if (scene.name == "WarScene" && !isBattle)
             {
+            
                 WarPrepare(GameInfo.PlayingState == GameState.AIvsPlayer, GameInfo.targetCityId, GameInfo.doCityId, GameInfo.targetGeneralIds, GameInfo.optionalGeneralIds[0], GameInfo.optionalGeneralIds[1]);
                 StartTurn();
+                
                 if (PlayerPrefs.GetFloat("bgmVolume") > 0)
                 {
-                    SoundManager.Instance.PlayBGM("3");
-                    Debug.Log("播放音乐2");
+                    SoundManager.Instance.PlayBGM("Assets/Audio/Bgm/3.ogg");
+                    Debug.Log("播放音乐3");
                 }
                 else
                 {
@@ -166,7 +170,78 @@ namespace War
             }
         }
         
-        
+        /// <summary>
+        /// 重置所有战争数据
+        /// </summary>
+        private void ClearWarData()
+        {
+            // 状态重置
+            warState = default;
+            battleState = default;
+
+            // 城市信息
+            curWarCityId = 0;
+            departureCityId = 0;
+            cityPos = Vector2Int.zero;
+
+            // 天数与阵营信息
+            day = 0;
+            isHmDef = false;
+
+            // 单位对象引用
+            hmUnitObj = null;
+            aiUnitObj = null;
+
+            // 单位列表
+            aiUnits.Clear();
+            hmUnits.Clear();
+
+            // 单位位置字典
+            UnitDictionary.Clear();
+
+            // 单位数据列表
+            unitDataList.Clear();
+
+            // 地图信息
+            if (warMap != null)
+            {
+                for (int y = 0; y < warMap.GetLength(0); y++)
+                {
+                    for (int x = 0; x < warMap.GetLength(1); x++)
+                    {
+                        warMap[y, x] = 0;
+                    }
+                }
+            }
+
+            // 资源信息
+            aiKingId = 0;
+            aiGold = 0;
+            aiFood = 0;
+            aiIndex = 0;
+
+            hmKingId = 0;
+            hmGold = 0;
+            hmFood = 0;
+
+            // 战斗结算信息
+            loserId = 0;
+            planIndex = 0;
+            planResult = string.Empty;
+
+            // 战斗进行标志
+            isBattle = false;
+
+            // AI状态机引用
+            aiWarStateMachine = null;
+
+            // 摄像机位置
+            cameraPosition = Vector3.zero;
+
+            // 事件清理（小心，如果外部还在监听可以考虑保留）
+            OnWarOver = null;
+        }
+
         
         /*private void Start()
         {
@@ -176,7 +251,7 @@ namespace War
             }
             else
             {
-                StartCoroutine(DataManagement.LoadAllFormations());
+                StartCoroutine(DataManager.LoadAllFormations());
                 WarPrepare(GameInfo.PlayingState == GameState.AIvsPlayer, GameInfo.targetCityId, GameInfo.doCityId, GameInfo.targetGeneralIds, GameInfo.optionalGeneralIds[0], GameInfo.optionalGeneralIds[1]);
                 StartTurn();
                 if (PlayerPrefs.GetFloat("bgmVolume") > 0)
@@ -203,20 +278,12 @@ namespace War
         }
         */
         
-        public static UnitObj GetUnitByPos(Vector2Int pos)
-        {
-            if (UnitDictionary.TryGetValue(pos, out var unit))
-            {
-                return unit;
-            }
-            Debug.LogError($"未找到{pos.x},{pos.y}的单位");
-            return null;
-        }
+
         
         void ResumeWar()
         {
             // 恢复单位
-            MapManager.LoadMap();
+            MapManager.Instance.LoadAndGenerateMap();
             MapManager.Instance.RestoreUnitsPosition();
             HandleBattleDieAndCaptured();
             isBattle = false;
@@ -228,16 +295,12 @@ namespace War
             day = 1;
             isHmDef = isAIAtk;
             curWarCityId = curWarCityID;
-            departureCity = departureCityID;
+            departureCityId = departureCityID;
             hmKingId = CountryListCache.GetCountryByCountryId(GameInfo.playerCountryId).countryKingId; // 获取玩家君主ID
             City curCity = CityListCache.GetCityByCityId(curWarCityId); // 获取当前战争城市对象
-            City departureATKCity = CityListCache.GetCityByCityId(departureCityID); // 获取出发城市对象
             List<short> aiGeneralIds = new List<short>();
             List<short> hmGeneralIds = new List<short>();
-            foreach (var id in attackerIds)
-            {
-                departureATKCity.RemoveOfficerId(id);// 移除进攻将军
-            }
+            
             if (isHmDef)//AI进攻玩家防守
             {
                 warState = WarState.AITurn; // 设置战争状态为AI回合
@@ -249,11 +312,13 @@ namespace War
                 aiFood = food;  // AI粮食
                 
                 // 设置AI参战将军ID
-                hmGeneralIds = curCity.GetOfficerIds().ToList(); // 获取当前城市的将领ID列表
+                hmGeneralIds.AddRange(curCity.GetOfficerIds()); // 获取当前城市的将领ID列表
                 aiGeneralIds.AddRange(attackerIds); // 获取AI将领ID列表将进攻方输入
-                if (aiGeneralIds.Count < 10)
+                
+                curCity.ClearAllOfficeGeneral(); // 清空当前城市所有将军
+                /*if (aiGeneralIds.Count < 10)
                 {
-                    byte[] relatedCityIds = curCity.connectCityId.Concat(departureATKCity.connectCityId).ToArray();
+                    byte[] relatedCityIds = curCity.connectCityId.Concat(departureCity.connectCityId).ToArray();
                     foreach (var otherCityId in relatedCityIds)
                     {
                         City otherCity = CityListCache.GetCityByCityId(otherCityId); // 获取出发城市的连接其他城市对象
@@ -281,12 +346,12 @@ namespace War
                             otherCity.AppointmentPrefect();  // 任命城主
                         }
                     }
-                }
+                }*/
             }
             else//玩家进攻AI防守
             {
                 warState = WarState.PlayerTurn; // 设置战争状态为玩家回合
-                aiKingId = CityListCache.GetCityByCityId(curWarCityId).cityBelongKing; // 获取当前城市所属君主ID
+                aiKingId = CityListCache.GetCityByCityId(curWarCityId).ownerID; // 获取当前城市所属君主ID
                 // 设置玩家的战斗资源
                 hmGold = gold;  // 玩家资金
                 hmFood = food;  // 玩家粮食
@@ -294,7 +359,9 @@ namespace War
                 aiFood = curCity.GetFood();  // AI粮食
                 // 设置A玩家和I参战将军ID
                 hmGeneralIds.AddRange(attackerIds); // 获取玩家将领ID列表将进攻方输入
-                aiGeneralIds = curCity.GetOfficerIds().ToList(); // 获取当前城市的将领ID列表
+                aiGeneralIds.AddRange(curCity.GetOfficerIds()); // 获取当前城市的将领ID列表
+                
+                curCity.ClearAllOfficeGeneral(); // 清空当前城市所有将军
             }
             MapManager.Instance.PrepareWarStance(hmGeneralIds, aiGeneralIds); //TODO 准备战争放置单位
         }
@@ -348,10 +415,7 @@ namespace War
                 EatFoodEveryDay(true);
                 if (hmFood == 0)
                 {
-                    UIWar.Instance.uiTips.ShowNoticeTipsWithConfirm("粮草枯竭,士卒饥疲,难以久持,暂且退兵!", () =>
-                    {
-                        UIWar.Instance.uiRetreatPanel.MustRetreat(PlayerWithdraw);
-                    } );
+                    HandleWarOver(WarState.PlayerStarve);
                 }
                 else // 粮足则切换回合
                 {
@@ -366,7 +430,7 @@ namespace War
                     Debug.Log($"第 {day} 天结束");
                     if (day > 30)// 战斗满 30 天，AI撤退
                     {
-                        AIWar.AIFollowRetreat();
+                        AIWar.AIAllRetreat();
                     }
                 }
             }
@@ -377,7 +441,7 @@ namespace War
                 EatFoodEveryDay(false);
                 if (aiFood == 0)
                 {
-                    AIWar.AIFollowRetreat();
+                    HandleWarOver(WarState.AIStarve);
                 }
                 else
                 {
@@ -392,10 +456,7 @@ namespace War
                     Debug.Log($"第 {day} 天结束");
                     if (day > 30)// 战斗满 30 天，玩家撤退
                     {
-                        UIWar.Instance.uiTips.ShowNoticeTipsWithConfirm("久战不利,恐生变故,宜早退兵,徐图后计!", () =>
-                        {
-                            UIWar.Instance.uiRetreatPanel.MustRetreat(PlayerWithdraw);
-                        } );
+                        HandleWarOver(WarState.DayOut);
                     }
                 }
             }   
@@ -518,7 +579,7 @@ namespace War
                 General general = GeneralListCache.GetGeneral(unit.genID);
                 if (general != null)
                 {
-                    int bl = general.generalSoldier / 300;
+                    int bl = general.soldiers / 300;
                     switch (bl)
                     {
                         case 9:
@@ -569,7 +630,7 @@ namespace War
                 General general = GeneralListCache.GetGeneral(unit.genID);
                 if (general != null)
                 {
-                    int bl = general.generalSoldier / 300;
+                    int bl = general.soldiers / 300;
                     switch (bl)
                     {
                         case 9:
@@ -618,20 +679,20 @@ namespace War
                     General doGeneral = GeneralListCache.GetGeneral(doUnit.genID);
                     if (doGeneral.HasSkill(5, 2))//是否拥有恐吓技能
                     {
-                        if (doGeneral.generalSoldier >= 300)
+                        if (doGeneral.soldiers >= 300)
                             foreach (var beUnit in beUnits)
                             {
-                                int loss = doGeneral.generalSoldier / 30;
+                                int loss = doGeneral.soldiers / 30;
                                 if (beUnit.unitState != UnitState.Captive)
                                 {
                                     General beGeneral = GeneralListCache.GetGeneral(beUnit.genID);
-                                    if (!beGeneral.HasSkill(5, 2) && beGeneral.generalSoldier >= 600 && doGeneral.force >= beGeneral.force && Random.Range(0, 100) <= 50)
+                                    if (!beGeneral.HasSkill(5, 2) && beGeneral.soldiers >= 600 && doGeneral.force >= beGeneral.force && Random.Range(0, 100) <= 50)
                                     {
                                         loss += Random.Range(0, doGeneral.force);
                                         beGeneral.SubSoldier((short)loss);
                                         GetUnitByID(beUnit.genID).GetArmySprite();
                                         Debug.Log($"{doGeneral.generalName}对{beGeneral.generalName}发动恐吓，减少士兵{loss}");
-                                        doGeneral.Addexperience((int)(loss * 1.2f));
+                                        doGeneral.AddExperience((int)(loss * 1.2f));
                                     }
                                 }
                             }
@@ -641,7 +702,15 @@ namespace War
             Debug.Log("恐吓阶段结束");
         }
     
-    
+        public static UnitObj GetUnitByPos(Vector2Int pos)
+        {
+            if (UnitDictionary.TryGetValue(pos, out var unit))
+            {
+                return unit;
+            }
+            Debug.LogError($"未找到{pos.x},{pos.y}的单位");
+            return null;
+        }
     
         public UnitObj GetUnitByID(short generalID)
         {
@@ -682,9 +751,9 @@ namespace War
                     if (unit.trappedDay > 3)
                     {
                         General general = GeneralListCache.GetGeneral(unit.genID);
-                        general.SubSoldier((short)(general.generalSoldier/ 8 + Random.Range(0, 300 - general.lead)));
-                        if (general.generalSoldier < 0)
-                            general.generalSoldier = 0;
+                        general.SubSoldier((short)(general.soldiers/ 8 + Random.Range(0, 300 - general.lead)));
+                        if (general.soldiers < 0)
+                            general.soldiers = 0;
                     }
                     unit.SubTrappedDay(1);
                     
@@ -703,7 +772,7 @@ namespace War
         void EatFoodEveryDay(bool isPlayer)
         {
             List<UnitObj> units = isPlayer ? hmUnits : aiUnits;
-            short eatFood = (short)(-(units.Aggregate<UnitObj, short>(0, (current, unit) => (short)(current + GeneralListCache.GetGeneral(unit.genID).generalSoldier)) - 1) / 250 + 1);
+            short eatFood = (short)(-(units.Aggregate<UnitObj, short>(0, (current, unit) => (short)(current + GeneralListCache.GetGeneral(unit.genID).soldiers)) - 1) / 250 + 1);
             ChangeWarFood(eatFood, isPlayer);
         }
 
@@ -736,9 +805,8 @@ namespace War
         /// <summary>
         /// 获取可以撤退的城池列表，判断退路
         /// </summary>
-        /// <param name="kingId">城池所属君主ID</param>
         /// <returns>可以撤退的城池列表</returns>
-        public static List<byte> GetRetreatCityList(short kingId)
+        public static List<byte> GetRetreatCityList()
         {
             List<byte> retreatCityId = new List<byte>();
 
@@ -747,13 +815,13 @@ namespace War
             if (curCity == null)
             {
                 Debug.LogError($"当前城市 ID 无效：{Instance.curWarCityId}");
-                return retreatCityId;
+                return null;
             }
 
             // 检查连接城市 ID 数组是否为空
             if (curCity.connectCityId == null || curCity.connectCityId.Length == 0)
             {
-                Debug.LogWarning($"城市 {curCity.cityId} 没有连接的城市");
+                Debug.LogWarning($"城市 {curCity.cityID} 没有连接的城市");
                 return retreatCityId;
             }
 
@@ -771,7 +839,7 @@ namespace War
                 }
 
                 // 检查城市归属和将领数量
-                if (kingId == city.cityBelongKing && city.GetCityOfficerNum() < 10)
+                if (Instance.hmKingId == city.ownerID && city.GetCityOfficerNum() < 10)
                 {
                     retreatCityId.Add(cityId);
                 }
@@ -779,77 +847,34 @@ namespace War
 
             return retreatCityId;
         }
-   
-        /// <summary>
-        /// 将领单位撤退
-        /// </summary>
-        /// <param name="unitObj">撤退的单位</param>
-        /// <param name="cityId">城池ID</param>
-        /// <param name="belongKing">所属君主ID</param>
-        public static void RetreatGeneralToCity(UnitObj unitObj, byte cityId, short belongKing)
-        {
-            City curWarCity = CityListCache.GetCityByCityId(Instance.curWarCityId);
-            City city = CityListCache.GetCityByCityId(cityId);
-            short generalId = unitObj.genID;
-            curWarCity.RemoveOfficerId(generalId);
-            if (cityId <= 0 || city == null)
-            {
-                curWarCity.AddNotFoundGeneralId(generalId);
-                Debug.LogError($"城市 ID 无效：{cityId}");
-                return;
-            }
-            if (city.cityBelongKing == 0)//如果为空城
-            {
-                Country country = CountryListCache.GetCountryByKingId(belongKing);
-                country.AddCity(cityId);
-            }
-            else if (generalId == belongKing)//如果为君主
-            {
-                city.prefectId = generalId;
-            }
-            if (unitObj.unitState == UnitState.Captive)
-            {
-                city.AddCapture(generalId);
-            }
-            else if (city.GetCityOfficerNum() < 10)
-            {
-                city.AddOfficeGeneralId(generalId);
-            }
-            else
-            {
-                curWarCity.AddNotFoundGeneralId(generalId);
-            }
-            city.AppointmentPrefect();
-        }
     
         /// <summary>
-        /// 获取可以撤退的城池列表，与玩家不同之处在于可以撤退邻近的空城
+        /// 获取可以撤退的城池列表，与玩家不同之处在于可以撤退邻近的空城和势力其他城池
         /// </summary>
-        /// <param name="kingId">城池所属君主ID</param>
         /// <returns>可以撤退的城池列表</returns>
-        public static List<byte> AIGetRetreatCityList(short kingId)
+        public static List<byte> AIGetRetreatCityList()
         {
             List<byte> retreatCityId = new List<byte>();
 
             // 获取当前城市，检查是否为 null
-            City curCity = CityListCache.GetCityByCityId(WarManager.Instance.curWarCityId);
+            City curCity = CityListCache.GetCityByCityId(Instance.curWarCityId);
             if (curCity == null)
             {
-                Debug.LogError($"当前城市 ID 无效：{WarManager.Instance.curWarCityId}");
+                Debug.LogError($"当前城市 ID 无效：{Instance.curWarCityId}");
                 return retreatCityId;
             }
 
             // 检查连接城市 ID 数组是否为空
             if (curCity.connectCityId == null || curCity.connectCityId.Length == 0)
             {
-                Debug.LogWarning($"城市 {curCity.cityId} 没有连接的城市");
+                Debug.LogWarning($"城市 {curCity.cityID} 没有连接的城市");
                 return retreatCityId;
             }
 
             // 遍历连接的城市
             for (byte i = 0; i < curCity.connectCityId.Length; i++)
             {
-                byte cityId = (byte)curCity.connectCityId[i];
+                byte cityId = curCity.connectCityId[i];
 
                 // 检查连接城市是否存在
                 City city = CityListCache.GetCityByCityId(cityId);
@@ -860,14 +885,85 @@ namespace War
                 }
 
                 // 检查城市归属和将领数量与玩家不同之处在于可以撤退空城
-                if ((kingId == city.cityBelongKing && city.GetCityOfficerNum() < 10) || city.cityBelongKing == 0)
+                if ((Instance.aiKingId == city.ownerID && city.GetCityOfficerNum() < 10) || city.ownerID == 0)
                 {
                     retreatCityId.Add(cityId);
+                }
+            }
+            
+            // 遍历势力中所有城池
+            Country country = CountryListCache.GetCountryByKingId(Instance.aiKingId);
+            for (int i = 0; i < country.cityIDs.Count; i++)
+            {
+                if (country.cityIDs[i] == Instance.curWarCityId)
+                    continue;
+
+                // 检查连接城市是否存在
+                City city = CityListCache.GetCityByCityId(country.cityIDs[i]);
+                if (city == null)
+                {
+                    Debug.LogWarning($"连接的城市 ID {country.cityIDs[i]} 无效，跳过处理");
+                    continue;
+                }
+                
+                // 检查城市将领数量和重复性检查
+                if (city.GetCityOfficerNum() < 10 && !retreatCityId.Contains(country.cityIDs[i]))
+                {
+                    retreatCityId.Add(country.cityIDs[i]);
                 }
             }
             return retreatCityId;
         }
 
+        /// <summary>
+        /// 将领单位撤退
+        /// </summary>
+        /// <param name="generalId">撤退的将领ID</param>
+        /// <param name="cityId">撤退回到的城池ID</param>
+        /// <param name="isPlayer">是否所属玩家</param>
+        /// <param name="isCaptured">是否是被俘虏的敌方将领</param>
+        public static void RetreatGeneralToCity(short generalId, byte cityId, bool isPlayer , bool isCaptured)
+        {
+            City curWarCity = CityListCache.GetCityByCityId(Instance.curWarCityId);
+            City city = CityListCache.GetCityByCityId(cityId);
+            
+            curWarCity.RemoveOfficerId(generalId);
+            if (cityId <= 0 || city == null)
+            {
+                curWarCity.AddNotFoundGeneralId(generalId);
+                Debug.LogWarning($"城市ID无效：{cityId}, 武将:{generalId}在{curWarCity.cityName}下野");
+                return;
+            }
+            
+            if ((!isCaptured && !isPlayer && city.ownerID == 0)
+                || (isCaptured && isPlayer && city.ownerID == 0))//如果不是俘虏而是AI将领、是俘虏且是玩家、且为空城
+            {
+                Country country = CountryListCache.GetCountryByKingId(Instance.aiKingId);
+                country.AddCity(cityId);
+                if (city.GetCityOfficerNum() < 10)//如果是被俘虏的玩家将领,尝试加入城池
+                {
+                    city.AddOfficeGeneralId(generalId);
+                }
+                else
+                {
+                    city.AddNotFoundGeneralId(generalId);
+                }
+            }
+            else if (isCaptured && !isPlayer)// 如果是被俘虏的AI将领, 玩家俘虏的AI将领加入监狱
+            {
+                city.AddCapture(generalId);
+            }
+            else if (city.GetCityOfficerNum() < 10) // 如果是非俘虏的玩家将领,尝试加入城池
+            {
+                city.AddOfficeGeneralId(generalId);
+            }
+            else
+            {
+                city.AddNotFoundGeneralId(generalId);
+            }
+            
+        }
+        
         /// <summary>
         /// 胜利方处理
         /// </summary>
@@ -900,7 +996,7 @@ namespace War
                 {
                     city.AddCapture(enemyUnit.genID);
                 }
-                GameInfo.countryDieTips = isHmWin ? (byte)4 : (byte)3;
+                GameInfo.countryDieTips = isHmWin ? (byte)3 : (byte)4;
             }
             else if (isHmWin) // 如果AI失败方有城池可以继承
             {
@@ -928,82 +1024,366 @@ namespace War
                     city.AddNotFoundGeneralId(unit.genID);
                 }
             }
-            city.AppointmentPrefect();
+            city.AutoAppointPrefect();
+        }
+        
+        
+        public void HandleWarOver(WarState state)
+        {
+            switch (state)
+            {
+                case WarState.DayOut:
+                    HandleDayOut();
+                    break;
+                case WarState.Occupy:
+                    HandleOccupy();
+                    break;
+                case WarState.AIStarve:
+                case WarState.PlayerStarve:
+                    HandleStarve(state);
+                    break;
+                case WarState.AIRetreat:
+                case WarState.PlayerRetreat:
+                    HandleRetreat(state);
+                    break;
+                case WarState.AICaptive:
+                case WarState.PlayerCaptive:
+                    HandleCaptive(state);
+                    break;
+                case WarState.AIDie:
+                case WarState.PlayerDie:
+                    HandleDie(state);
+                    break;
+            }
         }
 
-    
-    
-    
-    
-    
-        /*/// <summary>
-        /// 失败方主将被抓或死亡处理撤退
-        /// </summary>
-        /// <param name="isPlayer">是否是玩家撤退</param>
-        /// <param name="loseCommander">是否因失去主将撤退</param>
-        public void HandleMustRetreat(bool isPlayer, bool loseCommander)
+        private void HandleDayOut()
         {
-            List <UnitObj> units = isPlayer ? HMUnits : AIUnits;
-            byte byte0 = 0;
-            City curWarCity = CityListCache.GetCityByCityId(curWarCityId);
-            foreach (var unitObj in units)
+            if (isHmDef)
             {
-                if (unitObj.unitState != UnitState.Captive)
-                {
+                // 玩家守城成功，AI攻城失败（AI撤退）
+                UpdateCityResource(curWarCityId, hmGold, hmFood);
+                UpdateCityOfficersAfterBattle(hmUnits, curWarCityId, true);
                 
-                }
+                AIWar.AIAllRetreat();
             }
-            for (byte i = 0; i < aiGeneralNum_inWar; i++)
+            else
             {
-                if (aiUnitTrapped[i] == 0 || aiUnitTrapped[i] > 3)
+                // AI守城成功，玩家攻城失败
+                UpdateCityResource(curWarCityId, aiGold, aiFood);
+                UpdateCityOfficersAfterBattle(aiUnits, curWarCityId, false);
+                
+                //TODO 玩家强制撤退
+                UIWar.Instance.NotifyWarEvent("久战不利,恐生变故,宜早退兵,徐图后计!", () =>
                 {
-                    byte0 = (byte)(byte0 + 1);
-                    aiGeneralId_inWar[byte0] = aiGeneralId_inWar[i];
-                }
+                    UIWar.Instance.uiRetreatPanel.MustRetreat();
+                });
             }
-            aiGeneralNum_inWar = byte0;
-            for (byte byte2 = 0; byte2 < hmGeneralNum; byte2 = (byte)(byte2 + 1))
+        }
+
+        private void HandleOccupy()
+        {
+            if (isHmDef)
             {
-                if (hmUnitTrapped[byte2] == 2)// 玩家武将被俘获被笼络
+                // 玩家守城失败
+                HandleCityOccupation(playerDefeated: true);
+            }
+            else
+            {
+                // AI守城失败
+                HandleCityOccupation(playerDefeated: false);
+            }
+        }
+
+        private void HandleStarve(WarState starveType)
+        {
+            if (starveType == WarState.AIStarve && isHmDef)
+            {
+                // AI攻城缺粮，撤退
+                UpdateCityResource(curWarCityId, hmGold, hmFood);
+                UpdateCityOfficersAfterBattle(hmUnits, curWarCityId, true);
+                
+                AIWar.AIAllRetreat();
+            }
+            else if (starveType == WarState.AIStarve && !isHmDef)
+            {
+                // 其他情况，守城失败，城池易主
+                HandleCityOccupation(playerDefeated: false);
+            }
+            else // 其他情况，守城失败，城池易主
+            {
+                HandleCityOccupation(playerDefeated: starveType == WarState.PlayerStarve);
+            }
+            
+        }
+
+        private void HandleRetreat(WarState retreatType)
+        {
+            if (isHmDef)
+            {
+                if (retreatType == WarState.AIRetreat)
                 {
-                    short userGeneralId = hmGeneralIdArray[byte2];
-                    if (aiGeneralNum_inWar < 10)// 城池有空位则变为AI将领否则下野
-                    {
-                        RandomSetGeneralLoyalty(userGeneralId);
-                        aiGeneralNum_inWar = (byte)(aiGeneralNum_inWar + 1);
-                        aiGeneralId_inWar[aiGeneralNum_inWar] = userGeneralId;
-                    }
-                    else
-                    {
-                        curWarCity.AddNotFoundGeneralId(userGeneralId);
-                    }
+                    // AI攻城主动撤退，玩家守城成功
+                    UpdateCityResource(curWarCityId, hmGold, hmFood);
+                    UpdateCityOfficersAfterBattle(hmUnits, curWarCityId, true);
+                }
+                else
+                {
+                    // 玩家守城主动撤退，城池易主
+                    HandleCityOccupation(playerDefeated: true);
                 }
             }
-            curWarCity.ClearAllOfficeGeneral();
-            for (int i = 0; i < aiGeneralNum_inWar; i++)
-                curWarCity.AddOfficeGeneralId(aiGeneralId_inWar[i]);
-            curWarCity.AppointmentPrefect();
-            curWarCity.SetMoney(aiGold);
-            curWarCity.SetFood(aiFood);
-            if (mainGeneralLost)//主将被抓或死亡
+            else
             {
-                curWarCity.AddMoney(hmGold);
-                curWarCity.AddFood(hmFood);
+                if (retreatType == WarState.AIRetreat)
+                {
+                    // AI守城主动撤退，玩家攻城成功
+                    HandleCityOccupation(playerDefeated: false);
+                }
+                else
+                {
+                    // 玩家攻城主动撤退
+                    UpdateCityResource(curWarCityId, aiGold, aiFood);
+                    UpdateCityOfficersAfterBattle(aiUnits, curWarCityId, false);
+                }
             }
-            if (GameInfo.countryDieTips > 1)
+        }
+
+        private void HandleCaptive(WarState captiveType)
+        {
+            HandleCityOccupation(playerDefeated: captiveType == WarState.PlayerCaptive);
+            CaptureCityResource(curWarCityId, captiveType == WarState.PlayerCaptive ? hmGold : aiGold,
+                captiveType == WarState.PlayerCaptive ? hmFood : aiFood);
+        }
+
+        private void HandleDie(WarState dieType)
+        {
+            if (dieType == WarState.AIDie && isHmDef)
             {
-                retreatCause = 8;
-                warState = WarState.None;
-                if (CountryListCache.GetCountryByCountryId(GameInfo.playerCountryId).IsEndangered())
+                // AI攻城失败，判断AI继位还是灭亡
+                HandleAIDie();
+            }
+            else if (dieType == WarState.PlayerDie && isHmDef)
+            {
+                // 玩家守城失败，判断玩家继位还是灭亡
+                HandlePlayerDie();
+            }
+            else if (dieType == WarState.AIDie)
+            {
+                HandleAIDie();
+            }
+            else
+            {
+                HandlePlayerDie();
+            }
+        }
+
+        private void HandleAIDie()
+        {
+            City city = CityListCache.GetCityByCityId(curWarCityId);
+            UpdateCityResource(curWarCityId, hmGold, hmFood);
+            
+            CaptureCityResource(curWarCityId, aiGold, aiFood); // 缴获AI钱粮资源
+
+            UpdateCityOfficersAfterBattle(hmUnits, curWarCityId, true);
+
+            Country aiCountry = CountryListCache.GetCountryByKingId(aiKingId);
+
+            if (loserId == aiKingId) // 判断是AI君主阵亡
+            {
+                if (AIGetRetreatCityList().Count == 0)
+                {
+                    // AI最后一座城池丧失，直接灭亡
+                    aiCountry.RemoveCity(city.cityID);
+                    CountryListCache.GetCountryByKingId(hmKingId).AddCity(city.cityID);
+
+                    CountryListCache.RemoveCountry(aiCountry.countryId);
+
                     GameInfo.countryDieTips = 3;
+                    GameInfo.ShowInfo = aiCountry.KingName() + "势力灭亡了";
+                    
+                    UIWar.Instance.NotifyWarEvent(aiCountry.KingName() + "已死，敌军兵败如山倒!", WarOver);
+                }
+                else
+                {
+                    // AI还有退路，继位成功
+                    AIWar.AIAllRetreat();
+                    aiCountry.RemoveCity(city.cityID);
+                    aiCountry.Inherit();
+                    
+                    CountryListCache.GetCountryByKingId(hmKingId).AddCity(city.cityID);
+            
+                    GameInfo.countryDieTips = 1;
+                    GameInfo.ShowInfo = GeneralListCache.GetGeneral(aiKingId).generalName
+                                        + "既殁，其从属共推" + aiCountry.KingName() + "主事";
+                }
             }
-        }*/
+            else
+            {
+                // AI主将死亡但不是君主，仅撤退
+                AIWar.AIAllRetreat();
 
-    
+                aiCountry.RemoveCity(city.cityID);
+                CountryListCache.GetCountryByKingId(hmKingId).AddCity(city.cityID);
+            }
+        }
 
-    
+        private void HandlePlayerDie()
+        {
+            City city = CityListCache.GetCityByCityId(curWarCityId);
+            UpdateCityResource(curWarCityId, aiGold, aiFood);
+            
+            CaptureCityResource(curWarCityId, hmGold, hmFood); // 缴获玩家的钱粮资源
 
+            UpdateCityOfficersAfterBattle(aiUnits, curWarCityId, false);
+
+            Country hmCountry = CountryListCache.GetCountryByKingId(hmKingId);
+
+            if (loserId == hmKingId) // 判断是玩家君主阵亡
+            {
+                if (GetRetreatCityList().Count == 0)
+                {
+                    // 玩家最后一座城池丧失，直接灭亡
+                    if (hmCountry.cityIDs.Count > 1 || hmCountry.cityIDs[0] != curWarCityId ||
+                        hmUnits[0].genID != hmKingId)
+                    {
+                        Debug.LogWarning($"玩家城池数{hmCountry.cityIDs.Count}, 城池ID{hmCountry.cityIDs[0]}不符战场，或主将ID{hmUnits[0].genID}不符");
+                    }
+
+                    hmCountry.RemoveCity(city.cityID);
+                    CountryListCache.GetCountryByKingId(aiKingId).AddCity(city.cityID);
+
+                    CountryListCache.RemoveCountry(hmCountry.countryId);
+
+                    GameInfo.countryDieTips = 4;
+                    GameInfo.ShowInfo = "玩家" + hmCountry.KingName() + "势力灭亡了";
+                    
+                    UIWar.Instance.NotifyWarEvent("三军听令，自刎归天!", WarOver);
+                }
+                else
+                {
+                    hmCountry.RemoveCity(city.cityID);
+                    CountryListCache.GetCountryByKingId(aiKingId).AddCity(city.cityID);
+
+                    GameInfo.countryDieTips = 2;
+                    GameInfo.ShowInfo = "君主:" + hmCountry.KingName() + "身死，准备选择谁继位？";
+                    // 玩家还有退路，弹出选择继位界面
+                    UIWar.Instance.uiRetreatPanel.MustRetreat();
+                }
+            }
+            else // 玩家主将死亡但不是君主，仅撤退
+            {
+                hmCountry.RemoveCity(city.cityID);
+                CountryListCache.GetCountryByKingId(aiKingId).AddCity(city.cityID);
+                
+                UIWar.Instance.uiRetreatPanel.MustRetreat();
+            }
+        }
+
+
+        private void UpdateCityResource(byte cityId, short gold, short food)
+        {
+            City city = CityListCache.GetCityByCityId(cityId);
+            city.SetMoney(gold);
+            city.SetFood(food);
+        }
+
+        private void CaptureCityResource(byte cityId, short gold, short food)
+        {
+            City city = CityListCache.GetCityByCityId(cityId);
+            city.AddGold(gold);
+            city.AddFood(food);
+        }
+        
+        private void UpdateCityOfficersAfterBattle(List<UnitObj> units, byte cityId, bool isPlayer)
+        {
+            City city = CityListCache.GetCityByCityId(cityId);
     
+            foreach (var unit in units)
+            {
+                if (unit.unitState == UnitState.Captive && !unit.isPlayer && isPlayer)
+                {
+                    city.AddCapture(unit.genID); // 玩家俘虏AI武将
+                }
+                else
+                {
+                    city.AddOfficeGeneralId(unit.genID);
+                    if (unit.IsCommander && unit.unitState != UnitState.Captive)
+                    {
+                        city.AppointPrefect(unit.genID);
+                        Debug.Log("任命城主:" + unit.UnitName);
+                    }
+                }
+            }
+        }
+
+        private void HandleCityOccupation(bool playerDefeated)
+        {
+            short winnerKingId = playerDefeated ? aiKingId : hmKingId;
+            short loserKingId = playerDefeated ? hmKingId : aiKingId;
+
+            UpdateCityResource(curWarCityId, playerDefeated ? aiGold : hmGold,
+                playerDefeated ? aiFood : hmFood);
+
+            List<UnitObj> winnerUnits = playerDefeated ? aiUnits : hmUnits;
+            UpdateCityOfficersAfterBattle(winnerUnits, curWarCityId, !playerDefeated);
+
+            CountryListCache.GetCountryByKingId(loserKingId).RemoveCity(curWarCityId);
+            CountryListCache.GetCountryByKingId(winnerKingId).AddCity(curWarCityId);
+
+            if (playerDefeated)
+            {
+                CheckPlayerDefeat();
+            }
+            else
+            {
+                CheckAIDefeat();
+            }
+        }
+
+        private void CheckPlayerDefeat()
+        {
+            if (GetRetreatCityList().Count == 0)
+            {
+                // 玩家灭亡
+                Country hmCountry = CountryListCache.GetCountryByKingId(hmKingId);
+                CountryListCache.RemoveCountry(hmCountry.countryId);
+        
+                GameInfo.countryDieTips = 4;
+                GameInfo.ShowInfo = "玩家" + hmCountry.KingName() + "势力灭亡了";
+                
+                UIWar.Instance.NotifyWarEvent("三军听令，自刎归天!", WarOver);
+            }
+            /*else
+            {
+                // 可以继位或撤退
+                UIWar.Instance.NotifyWarEvent("我军失利，不宜再战，请速撤军!", () =>
+                {
+                    UIWar.Instance.uiRetreatPanel.MustRetreat();
+                });
+            }*/
+        }
+
+        private void CheckAIDefeat()
+        {
+            if (AIGetRetreatCityList().Count == 0)
+            {
+                // AI灭亡
+                Country aiCountry = CountryListCache.GetCountryByKingId(aiKingId);
+                CountryListCache.RemoveCountry(aiCountry.countryId);
+        
+                GameInfo.countryDieTips = 3;
+                GameInfo.ShowInfo = aiCountry.KingName() + "势力灭亡了";
+
+                UIWar.Instance.NotifyWarEvent(aiCountry.KingName() + "已死，敌军兵败如山倒!", WarOver);
+            }
+            /*else
+            {
+                // 可以继位或撤退
+                AIWar.AIAllRetreat();
+            }*/
+        }
+
         /// <summary>
         /// 是否触发军魂技能光环效果
         /// </summary>
@@ -1032,62 +1412,60 @@ namespace War
 
         public void AIWithdraw()
         {
-            Debug.Log("电脑撤退");
-            AfterWarSettlement(true, false);
-            UIWar.Instance.uiTips.ShowNoticeTipsWithConfirm("敌军全军逃窜!", WarOver);
+            HandleWarOver(WarState.AIRetreat);
+            UIWar.Instance.NotifyWarEvent("敌军全军逃窜!", WarOver);
             Debug.Log("敌方撤军跳转场景");
         }
         
         // 玩家主动撤退完成后结束战争
-        public void PlayerWithdraw()
+        public void  PlayerWithdraw()
         {
-            Debug.Log("玩家撤退完成");
-            AfterWarSettlement(false, false);
-            UIWar.Instance.uiTips.ShowNoticeTipsWithConfirm("我方全军撤退!", WarOver);
+            HandleWarOver(WarState.PlayerRetreat);
+            UIWar.Instance.NotifyWarEvent("我方全军撤退!", WarOver);
             Debug.Log("我方撤军跳转场景");
         }
 
         // 回到大战场界面后处理小战场的将军被俘、死亡的结果
         public void HandleBattleDieAndCaptured()
         {
-            short generalId = loserId;
-            if (generalId == 0)
+            if (loserId == 0)
             {
                 return;
             }
-
-            loserId = 0;
-            UnitData unit = GetUnitDataByID(generalId);
-            GameInfo.chooseGeneralName = GeneralListCache.GetGeneral(generalId).generalName;
+           
+            UnitData unit = GetUnitDataByID(loserId);
+            GameInfo.chooseGeneralName = GeneralListCache.GetGeneral(loserId).generalName;
             switch (battleState)
             {
                 case BattleState.AICaptured:  // 处理AI将军被俘虏逻辑
-                    if (unit.isCommander)  // 如果AI主将被擒
+                    /*if (unit.isCommander)  // 如果AI主将被擒
                     {
-                        AIWar.AIFollowRetreat();  // AI撤退
+                        AIWar.AIAllRetreat();  // AI撤退
                         AfterWarSettlement(true, true);
-                        UIWar.Instance.uiTips.ShowNoticeTipsWithConfirm("敌军主将被擒，溃散而逃", WarOver);
-                    }
+                        UIWar.Instance.NotifyWarEvent("敌军主将被擒，溃散而逃", WarOver);
+                    }*/
+                    HandleWarOver(WarState.AICaptive);
                     break;  
                 case BattleState.HMCaptured:  // 处理玩家将军被俘虏逻辑
-                    if (unit.isCommander)  // 如果玩家主将被擒
+                    /*if (unit.isCommander)  // 如果玩家主将被擒
                     {
                         UIWar.Instance.uiRetreatPanel.MustRetreat(() =>
                         {
                             AfterWarSettlement(false, true);
                             WarOver();
                         });
-                    }
+                    }*/
+                    HandleWarOver(WarState.PlayerCaptive);
                     break;
                 case BattleState.AIDie:  // 处理AI将军死亡逻辑
-                    if (unit.isCommander)//AI主将死亡
+                    /*if (unit.isCommander)//AI主将死亡
                     {
-                        if (generalId == aiKingId)  // 如果AI将军为国王
+                        if (loserId == aiKingId)  // 如果AI将军为国王
                         {
                             Country country = CountryListCache.GetCountryByKingId(aiKingId);
                             if (country.IsDestroyed())
                             {
-                                GameInfo.countryDieTips = 4;
+                                GameInfo.countryDieTips = 3;
                                 SceneManager.LoadSceneAsync("GlobalScene");
                                 break;
                             }
@@ -1096,20 +1474,21 @@ namespace War
                         
                             aiKingId = newKingGeneralId;  // 更新AI国王ID
                         }
-                        AIWar.AIFollowRetreat();  // AI撤退
+                        AIWar.AIAllRetreat();  // AI撤退
                         AfterWarSettlement(false,true);
-                        UIWar.Instance.uiTips.ShowNoticeTipsWithConfirm("敌军主将阵亡，已溃不成军", WarOver);
-                    }
+                        UIWar.Instance.NotifyWarEvent("敌军主将阵亡，已溃不成军", WarOver);
+                    }*/
+                    HandleWarOver(WarState.AIDie);
                     break;
                 case BattleState.HMDie:  // 处理玩家将军死亡逻辑
-                    if (unit.isCommander)//玩家主将死亡
+                    /*if (unit.isCommander)//玩家主将死亡
                     {
                         if (generalId == hmKingId)  // 如果玩家将军为君主
                         {
                             Country country = CountryListCache.GetCountryByKingId(hmKingId);
                             if (country.IsDestroyed())// 如果是最后一城君主死亡，玩家失败
                             {
-                                GameInfo.countryDieTips = 3;
+                                GameInfo.countryDieTips = 4;
                                 AfterWarSettlement(false,false);
                                 WarOver();
                                 break;
@@ -1123,9 +1502,11 @@ namespace War
                             AfterWarSettlement(false,true);
                             WarOver();
                         });
-                    }
+                    }*/
+                    HandleWarOver(WarState.PlayerDie);
                     break;
             }
+            loserId = 0;
         }
         
         public void ChangeUnitDataDieAndCaptured(short generalID)
@@ -1159,8 +1540,8 @@ namespace War
         public void WarOver()
         {
             warState = WarState.None;
-            OnWarOver?.Invoke();
             Debug.Log("战争结束");
+            ClearWarData();
             SceneManager.LoadSceneAsync("GlobalScene");
         }
 
@@ -1178,7 +1559,9 @@ namespace War
         WarLose,
         WarEvent,
 
-        AIOccupy,
+        Occupy,
+        DayOut,
+        
         AIRetreat,
         AICaptive,
         AIDie,
@@ -1188,8 +1571,7 @@ namespace War
         PlayerCaptive,
         PlayerDie,
         PlayerStarve,
-        DayOut,
-
+        
         Battle
 
     }

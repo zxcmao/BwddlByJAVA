@@ -53,6 +53,7 @@ namespace War
             }
         }
 
+        
         private void Start()
         {
             // 添加按钮点击事件
@@ -96,7 +97,13 @@ namespace War
         public void NotifyWarEvent(string text)
         {
             HideUnderMenu();
-            StartCoroutine(uiTips.ShowNoticeTips(text));
+            uiTips.ShowNoticeTipsWithConfirm(text, () => { });
+        }
+        
+        public void NotifyWarEvent(string text, Action action)
+        {
+            HideUnderMenu();
+            uiTips.ShowNoticeTipsWithConfirm(text, action);
         }
 
         private void HideUnderMenu()
@@ -148,7 +155,7 @@ namespace War
             DisplayWarMenu();
         }
 
-        // 点击移动按钮
+        //Todo 点击移动按钮
         private void OnClickMoveButton()
         {
             // 如果已经移动过，则不显示可移动范围
@@ -191,17 +198,17 @@ namespace War
         public void WhetherGoVillage(byte terrain) //是否进入村庄提示
         {
             HideUnderMenu();
-            uiTips.OnOptionSelected += HandleInVillage;
+            
             switch (terrain)
             {
                 case 5: //武器店
-                    uiTips.ShowOptionalTips("是否进入武器店？");
+                    uiTips.ShowOptionalTips("是否进入武器店？", HandleInVillage);
                     break;
                 case 6: //粮食店
-                    uiTips.ShowOptionalTips("是否进入粮食店？");
+                    uiTips.ShowOptionalTips("是否进入粮食店？", HandleInVillage);
                     break;
                 case 7: //医馆
-                    uiTips.ShowOptionalTips("是否进入医馆？");
+                    uiTips.ShowOptionalTips("是否进入医馆？", HandleInVillage);
                     break;
             }
         }
@@ -217,7 +224,7 @@ namespace War
                 }
                 ResetCancelButton();
             });
-            uiPlanPanel.PlanNum = 16;//GeneralListCache.GetGeneral(selectedUnit.genID).GetPlanNum();
+            uiPlanPanel.PlanNum = GeneralListCache.GetGeneral(WarManager.Instance.hmUnitObj.genID).GetPlanNum();
             uiPlanPanel.ShowScrollPlanPanel();
         }
 
@@ -300,7 +307,6 @@ namespace War
         void OnClickRetreatButton()
         {
             HideUnderMenu();
-            uiRetreatPanel.AllRetreatOver += WarManager.Instance.PlayerWithdraw;
             uiRetreatPanel.ShowRetreatPanel();
         }
         
@@ -365,16 +371,14 @@ namespace War
                         else
                         {
                             WarManager.Instance.hmGold -= 100;
-                            byte hpTreat = (byte)UnityEngine.Random.Range(20, 36);
+                            var hpTreat = UnityEngine.Random.Range(20, 36);
                             General general = GeneralListCache.GetGeneral(WarManager.Instance.hmUnitObj.genID);
-                            general.AddCurPhysical(hpTreat);
-                            NotifyWarEvent($"{general.generalName}体力恢复了{hpTreat}");
+                            NotifyWarEvent($"{general.generalName}体力恢复了{general.AddHP(hpTreat)}");
                         }
                         break;
                 }
             }
             DisplayWarMenu();
-            uiTips.OnOptionSelected -= HandleInVillage;
         }
 
         private void DoneWarSmithy(short gold, string text)

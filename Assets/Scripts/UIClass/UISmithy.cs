@@ -42,10 +42,10 @@ namespace UIClass
             var allWeapons = WeaponListCache.GetWeaponsBySmithy(citySmithy);
 
             // 使用 LINQ 将武器分类
-            _swordList = allWeapons.Where(w => w.weaponType == 0).ToList(); // 剑
-            _knifeList = allWeapons.Where(w => w.weaponType == 1).ToList(); // 刀
-            _spearList = allWeapons.Where(w => w.weaponType == 2).ToList(); // 矛
-            _armorList = allWeapons.Where(w => w.weaponType == 3).ToList(); // 护甲
+            _swordList = allWeapons.Where(w => w.kind == 0).ToList(); // 剑
+            _knifeList = allWeapons.Where(w => w.kind == 1).ToList(); // 刀
+            _spearList = allWeapons.Where(w => w.kind == 2).ToList(); // 矛
+            _armorList = allWeapons.Where(w => w.kind == 3).ToList(); // 护甲
             
 
             // 为每个 Toggle 添加监听器
@@ -90,9 +90,9 @@ namespace UIClass
                 if (columns.Length >= 4)
                 {
                     columns[0].text = weapon.weaponName;     // 武器名称
-                    columns[1].text = weapon.weaponProperties.ToString(); // 属性
-                    columns[2].text = weapon.weaponWeight.ToString();   // 重量
-                    columns[3].text = weapon.weaponPrice.ToString();    // 价格
+                    columns[1].text = weapon.property.ToString(); // 属性
+                    columns[2].text = weapon.weight.ToString();   // 重量
+                    columns[3].text = weapon.price.ToString();    // 价格
                 }
                 toggle.onValueChanged.RemoveAllListeners();
                 toggle.onValueChanged.AddListener(delegate{OnWeaponToggleValueChanged(toggle, toggle.isOn, weapon);} );
@@ -151,11 +151,11 @@ namespace UIClass
             string text = "退出武器铺！";
             if (_weapon != null)
             {
-                if (_gold >= _weapon.weaponPrice)
+                if (_gold >= _weapon.price)
                 {
-                    if (_general.BuyNewWeapon(_weapon.weaponId, _city.cityId))
+                    if (_general.BuyNewWeapon(_weapon.weaponID, _city.cityID))
                     { 
-                        _gold -= _weapon.weaponPrice;
+                        _gold -= _weapon.price;
                         text = TextLibrary.DoThingsResultInfo[7][4]; 
                     }
                     else

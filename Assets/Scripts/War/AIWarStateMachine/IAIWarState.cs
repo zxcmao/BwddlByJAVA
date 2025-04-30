@@ -37,14 +37,13 @@ namespace War.AIWarStateMachine
         /// <param name="onConfirm">玩家确认后的回调</param>
         protected void PauseForPlayerConfirmation(string message, Action onConfirm)
         {
-            UITips tips = UIWar.Instance.uiTips;
-            if (tips == null)
+            if (UIWar.Instance == null)
             {
-                Debug.LogError("UITips组件未找到");
+                Debug.LogError("UIWar组件未找到");
                 return;
             }
 
-            tips.ShowNoticeTipsWithConfirm(message, () =>
+            UIWar.Instance.NotifyWarEvent(message, () =>
             {
                 onConfirm?.Invoke(); // 玩家确认后执行回调
             });
@@ -164,8 +163,7 @@ namespace War.AIWarStateMachine
             {
                 PauseForPlayerConfirmation("敌军全军撤退", () =>
                 {
-                    stateMachine.CurAIWar.SingletonRetreat();
-                    AIWar.AIFollowRetreat();
+                    AIWar.AIAllRetreat();
                     stateMachine.IsFinished = true;
                 });
             }
@@ -173,7 +171,7 @@ namespace War.AIWarStateMachine
             {
                 PauseForPlayerConfirmation("敌将逃遁", () =>
                 {
-                    stateMachine.CurAIWar.SingletonRetreat();
+                    AIWar.SingletonRetreat(stateMachine.CurAIWar._aiUnit.genID);
                     stateMachine.IsFinished = true;
                 });
             }

@@ -1,26 +1,46 @@
-﻿// 保存数据的类，用于处理字节数组的动态扩展和数据操作
+﻿
 
 using System.Collections.Generic;
 using BaseClass;
 using Newtonsoft.Json;
+using UnityEngine.Serialization;
 
 namespace DataClass
 {
     [System.Serializable]
-    public class SaveData
+    public class SaveData // 保存数据的类
     {
-        public string recordInfo;
-        public byte playerCountryId;
-        public byte doCityId;
-        public byte playerOrderNum;
-        public byte month;
+        public string kingName;
         public short years;
+        public byte month;
         public byte difficult;
+        public byte playerCountryId;
+        public byte playerOrderNum;
+        public byte doCityId;
         public byte attackCount;
-        [JsonProperty("countrySequence[]")]public List<byte> countrySequence = new List<byte>();
-        [JsonProperty("generalList[]")] public List<General> generalList;
-        [JsonProperty("cityList[]")] public List<City> cityList;
-        [JsonProperty("countryList[]")] public List<Country> countryList;
+        public List<byte> countrySequence;
+        public Dictionary<byte, Weapon> weaponDictionary;
+        public Dictionary<short, General> generalDictionary;
+        public Dictionary<byte, City> cityDictionary;
+        public Dictionary<byte, Country> countryDictionary;
+
+        public SaveData(string kingName, short years, byte month, byte difficult, byte playerCountryId, byte playerOrderNum, byte doCityId, byte attackCount, List<byte> countrySequence, Dictionary<byte, Weapon> weaponDictionary, Dictionary<short, General> generalDictionary, Dictionary<byte, City> cityDictionary, Dictionary<byte, Country> countryDictionary)
+        {
+            this.kingName = kingName;
+            this.years = years;
+            this.month = month;
+            this.difficult = difficult;
+            this.playerCountryId = playerCountryId;
+            this.playerOrderNum = playerOrderNum;
+            this.doCityId = doCityId;
+            this.attackCount = attackCount;
+            this.countrySequence = countrySequence;
+            this.weaponDictionary = weaponDictionary;
+            this.generalDictionary = generalDictionary;
+            this.cityDictionary = cityDictionary;
+            this.countryDictionary = countryDictionary;
+        }
+       
     }
 }
 /*

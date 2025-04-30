@@ -14,8 +14,8 @@ namespace Solo
 {
     public class UISolo : MonoBehaviour
     {
-        [SerializeField] private RawImage head0;
-        [SerializeField] private RawImage head1;
+        [SerializeField] private Image head0;
+        [SerializeField] private Image head1;
         [SerializeField] private TextMeshProUGUI name0;
         [SerializeField] private TextMeshProUGUI name1;
         [SerializeField] private Text hp0;
@@ -49,7 +49,13 @@ namespace Solo
         private General _hmGeneral{get => BattleManager.Instance.hmGeneral;set => BattleManager.Instance.hmGeneral = value;}
         private General _aiGeneral{get => BattleManager.Instance.aiGeneral;set => BattleManager.Instance.aiGeneral = value;}
         private SoloManager _soloManager;// 单挑方法
-        
+
+        private void OnDisable()
+        {
+            DataManager.Release(head0.sprite);
+            DataManager.Release(head1.sprite);
+        }
+
         // 单挑开始设定
         void Start()
         {
@@ -79,29 +85,30 @@ namespace Solo
             });
             Time.timeScale = 1f;
             Debug.Log($"{Time.timeScale}");
-            DataManagement.Instance.LoadAndInitializeData();
-            _hmGeneral = GeneralListCache.GetGeneral(61);
-            _aiGeneral = GeneralListCache.GetGeneral(4);
+            //DataManager.Instance.LoadAndInitializeData();
+            _hmGeneral = BattleManager.Instance.hmGeneral;
+            _aiGeneral = BattleManager.Instance.aiGeneral;
             _soloManager = new SoloManager(_hmGeneral, _aiGeneral);
             _soloManager.CheckWeaponDrop();
             ShowSoloPanel();
-            _soloState = SoloState.AITurn;
+            _soloState = _soloManager.IsPlayerFirst()? SoloState.PlayerTurn : SoloState.AITurn;
             StartSoloTurn();
         }
 
         
         void ShowSoloPanel()
         {
-            head0.texture = Resources.Load<Texture2D>($"HeadImage/{_hmGeneral.generalId}");
-            head1.texture = Resources.Load<Texture2D>($"HeadImage/{_aiGeneral.generalId}");
+            DataManager.LoadSpriteToImage($"Assets/Image/Head/{_hmGeneral.generalId}.jpg", head0);
+            DataManager.LoadSpriteToImage($"Assets/Image/Head/{_aiGeneral.generalId}.jpg", head1);
+            
             name0.text = _hmGeneral.generalName;
             name1.text = _aiGeneral.generalName;
-            hp0.text = _hmGeneral.curPhysical.ToString();
-            hp1.text = _aiGeneral.curPhysical.ToString();
-            hpSlider0.value = (float)(_hmGeneral.curPhysical / 100f);
-            hpSlider1.value = (float)(_aiGeneral.curPhysical / 100f);
-            weapon0.text = WeaponListCache.GetWeapon(_hmGeneral.weapon).weaponName;
-            weapon1.text = WeaponListCache.GetWeapon(_aiGeneral.weapon).weaponName;
+            hp0.text = _hmGeneral.health.ToString();
+            hp1.text = _aiGeneral.health.ToString();
+            hpSlider0.value = (float)(_hmGeneral.health / 100f);
+            hpSlider1.value = (float)(_aiGeneral.health / 100f);
+            weapon0.text = WeaponListCache.GetWeapon(_hmGeneral.arm).weaponName;
+            weapon1.text = WeaponListCache.GetWeapon(_aiGeneral.arm).weaponName;
             armor0.text = WeaponListCache.GetWeapon(_hmGeneral.armor).weaponName;
             armor1.text = WeaponListCache.GetWeapon(_aiGeneral.armor).weaponName;
         }
@@ -186,7 +193,7 @@ namespace Solo
                             ShowSoloInfo(info);
                             _soloState = SoloState.AISurrender;
                             yield return new WaitForSeconds(1f);
-                            yield return EndSoloTurn();
+                            EndSoloTurn();
                             yield break;
                         }
                         else
@@ -212,7 +219,7 @@ namespace Solo
                             ShowSoloInfo(info);
                             _soloState = SoloState.PlayerSurrender;
                             yield return new WaitForSeconds(1f);
-                            yield return EndSoloTurn();
+                            EndSoloTurn();
                             yield break;
                         }
                         else
@@ -236,7 +243,7 @@ namespace Solo
                             animator.SetBool("Retreat", true);
                             _soloState = SoloState.PlayerRetreat;
                             yield return new WaitForSeconds(1f);
-                            yield return EndSoloTurn();
+                            EndSoloTurn();
                             yield break;
                         }
                         else
@@ -254,7 +261,7 @@ namespace Solo
                             animator.SetBool("Retreat", true);
                             _soloState = SoloState.AIRetreat;
                             yield return new WaitForSeconds(1f);
-                            yield return EndSoloTurn();
+                            EndSoloTurn();
                             yield break;
                         }
                         else
@@ -272,7 +279,7 @@ namespace Solo
                     enemyAni.SetTrigger("Accept");
                     _soloState = SoloState.PlayerSurrender;
                     yield return new WaitForSeconds(1f);
-                    yield return EndSoloTurn();
+                    EndSoloTurn();
                     yield break;
                     
             }
@@ -302,23 +309,23 @@ namespace Solo
             Slider hpSlider = isPlayer ? hpSlider0 : hpSlider1;
             Text hpText = isPlayer ? hp0 : hp1;
             General hurtGeneral = isPlayer ? _hmGeneral : _aiGeneral;
-            byte health = hurtGeneral.GetCurPhysical();
+            byte health = hurtGeneral.GetHP();
             if (health - hurt <= 0)
             {
                 hpSlider.value = 0;
-                hurtGeneral.SubHp(hurtGeneral.GetCurPhysical());
+                hurtGeneral.SubHP(hurtGeneral.GetHP());
                 hpText.text = "0";
                 _soloState = isPlayer? SoloState.PlayerDie : SoloState.AIDie;
                 animator.SetBool("Dead", true);
                 StopAllCoroutines();
-                StartCoroutine(EndSoloTurn());
+                EndSoloTurn();
                 return true;
             }
             else
             {
                 hpSlider.value -= hurt/100f;
-                hurtGeneral.SubHp((byte)hurt);
-                hpText.text = hurtGeneral.GetCurPhysical().ToString();
+                hurtGeneral.SubHP((byte)hurt);
+                hpText.text = hurtGeneral.GetHP().ToString();
                 return false;
             }
         }
@@ -357,65 +364,74 @@ namespace Solo
                 yield return AnimationPlay(soloAction,false);
                 yield return null;
             }
-            yield return EndSoloTurn();
+            EndSoloTurn();
         }
         
         /// <summary>
         /// 处理单挑时武将撤退、投降、死亡情况
         /// </summary>
         /// <returns>单挑时武将撤退、投降、死亡</returns>
-        private IEnumerator EndSoloTurn()
+        private void EndSoloTurn()
         {
             switch (_soloState)
             {
                 // 检查战斗是否结束
                 case SoloState.PlayerRetreat:
                     _soloManager.HandleSoloExp();
-                    yield return  uiTips.ShowNoticeTips($"{TextLibrary.SoloInfo[3]}");
-                    SceneManager.LoadSceneAsync("BattleScene");
-                    yield break;
+                    uiTips.ShowNoticeTipsWithConfirm($"{TextLibrary.SoloInfo[3]}", () =>
+                    {
+                        SceneManager.LoadSceneAsync("BattleScene");
+                    });
+                    return;
                 case SoloState.PlayerSurrender:
                     _soloManager.HandleSoloExp();
                     BattleManager.Instance.battleState = BattleState.HMCaptured;
                     BattleManager.Instance.AfterBattleSettlement();
                     WarManager.Instance.ChangeUnitDataDieAndCaptured(_hmGeneral.generalId);
-                    yield return  uiTips.ShowNoticeTips($"{TextLibrary.SoloInfo[5]}");
-                    BattleManager.Instance.BattleOver();
-                    yield break;
+                    uiTips.ShowNoticeTipsWithConfirm($"{TextLibrary.SoloInfo[5]}", () =>
+                    {
+                        BattleManager.Instance.BattleOver();
+                    });
+                    return;
                 case SoloState.PlayerDie:
                     _soloManager.HandleSoloExp();
                     BattleManager.Instance.battleState = BattleState.HMDie;
                     BattleManager.Instance.AfterBattleSettlement();
                     WarManager.Instance.ChangeUnitDataDieAndCaptured(_hmGeneral.generalId);
-                    yield return  uiTips.ShowNoticeTips($"{TextLibrary.SoloInfo[6]}");
-                    BattleManager.Instance.BattleOver();
-                    yield break;
+                    uiTips.ShowNoticeTipsWithConfirm($"{TextLibrary.SoloInfo[6]}", () =>
+                    {
+                        BattleManager.Instance.BattleOver();
+                    });
+                    return;
                 case SoloState.AIRetreat:
                     _soloManager.HandleSoloExp();
-                    yield return  uiTips.ShowNoticeTips($"{TextLibrary.SoloInfo[10]}");
-                    SceneManager.LoadSceneAsync("BattleScene");
-                    yield break;
+                    uiTips.ShowNoticeTipsWithConfirm($"{TextLibrary.SoloInfo[10]}", () =>
+                    {
+                        SceneManager.LoadSceneAsync("BattleScene");
+                    });
+                    return;
                 case SoloState.AISurrender:
                     _soloManager.HandleSoloExp();
                     BattleManager.Instance.battleState = BattleState.AICaptured;
                     BattleManager.Instance.AfterBattleSettlement();
                     WarManager.Instance.ChangeUnitDataDieAndCaptured(_aiGeneral.generalId);
-                    yield return  uiTips.ShowNoticeTips($"{TextLibrary.SoloInfo[12]}");
-                    BattleManager.Instance.BattleOver();
-                    yield break;
+                    uiTips.ShowNoticeTipsWithConfirm($"{TextLibrary.SoloInfo[12]}", () =>
+                    {
+                        BattleManager.Instance.BattleOver();
+                    });
+                    return;
                 case SoloState.AIDie:
                     _soloManager.HandleSoloExp();
                     BattleManager.Instance.battleState = BattleState.AIDie;
                     BattleManager.Instance.AfterBattleSettlement();
-                    if (_soloManager.seizedWeapon)
+                    string text = _soloManager.seizedWeapon ? $"恭喜获得‘{_soloManager.ObtainWeaponOrArmor()}’" :
+                        $"{TextLibrary.SoloInfo[13]}";
+                    uiTips.ShowNoticeTipsWithConfirm(text, () =>
                     {
-                        string weaponName = _soloManager.ObtainWeaponOrArmor();
-                        yield return  uiTips.ShowNoticeTips($"恭喜获得‘{weaponName}’");
-                    }
-                    WarManager.Instance.ChangeUnitDataDieAndCaptured(_aiGeneral.generalId);
-                    yield return  uiTips.ShowNoticeTips($"{TextLibrary.SoloInfo[13]}");
-                    BattleManager.Instance.BattleOver();
-                    yield break;
+                        WarManager.Instance.ChangeUnitDataDieAndCaptured(_aiGeneral.generalId);
+                        BattleManager.Instance.BattleOver();
+                    });
+                    return;
                 default://正常继续单挑回合切换
                     Debug.Log("回合结束");
                     StartSoloTurn();

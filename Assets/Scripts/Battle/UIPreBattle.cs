@@ -35,8 +35,8 @@ namespace Battle
         
         // 绑定的UI对象
         [SerializeField] private GameObject startBattlePanel;
-        [SerializeField] private RawImage hmHead;
-        [SerializeField] private RawImage aiHead;
+        [SerializeField] private Image hmHead;
+        [SerializeField] private Image aiHead;
         [SerializeField] private TextMeshProUGUI hmName;
         [SerializeField] private TextMeshProUGUI aiName;
         [SerializeField] private TextMeshProUGUI hmSoldierNum;
@@ -140,12 +140,12 @@ namespace Battle
         // 战斗信息显示
         private void ShowBattlePanel()
         {
-            hmHead.texture = Resources.Load<Texture2D>($"HeadImage/{hmGeneral.generalId}");
-            aiHead.texture = Resources.Load<Texture2D>($"HeadImage/{aiGeneral.generalId}");
+            DataManager.LoadSpriteToImage($"Assets/Image/Head/{hmGeneral.generalId}.jpg", hmHead);
+            DataManager.LoadSpriteToImage($"Assets/Image/Head/{aiGeneral.generalId}.jpg", aiHead);
             hmName.text = hmGeneral.generalName;
             aiName.text = aiGeneral.generalName;
-            hmSoldierNum.text = "兵力:\n" + hmGeneral.generalSoldier;
-            aiSoldierNum.text = "兵力:\n" + aiGeneral.generalSoldier;
+            hmSoldierNum.text = "兵力:\n" + hmGeneral.soldiers;
+            aiSoldierNum.text = "兵力:\n" + aiGeneral.soldiers;
         }
 
         // 选择阵型
@@ -175,7 +175,7 @@ namespace Battle
                 manualBattle.onValueChanged.RemoveAllListeners();
                 manualBattle.onValueChanged.AddListener(ManualBattle);
 
-                bool canAutoBattle = hmGeneral.generalSoldier >= 500;
+                bool canAutoBattle = hmGeneral.soldiers >= 500;
                 autoBattle.gameObject.SetActive(canAutoBattle);
                 if (canAutoBattle)
                 {
@@ -213,8 +213,8 @@ namespace Battle
             battleCaption.gameObject.GetComponent<Button>().onClick.AddListener(OnEndButtonClick);
             battleCaption.gameObject.GetComponent<TextMeshProUGUI>().text = "战斗结束,点此处继续";
             yield return new WaitForSeconds(1.0f);
-            hmSoldierNum.text = "兵力:\n" + hmGeneral.generalSoldier;
-            aiSoldierNum.text = "兵力:\n" + aiGeneral.generalSoldier;
+            hmSoldierNum.text = "兵力:\n" + hmGeneral.soldiers;
+            aiSoldierNum.text = "兵力:\n" + aiGeneral.soldiers;
         }
 
         
@@ -229,6 +229,8 @@ namespace Battle
 
         public void Hide()
         {
+            DataManager.Release(hmHead.sprite);
+            DataManager.Release(aiHead.sprite);
             formation0.onValueChanged.RemoveAllListeners();
             formation1.onValueChanged.RemoveAllListeners();
             formation2.onValueChanged.RemoveAllListeners();

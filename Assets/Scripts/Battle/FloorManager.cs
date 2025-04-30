@@ -130,7 +130,7 @@ namespace Battle
             {
                 if (!BattleManager.Instance.isHmDef)// AI守城
                 {
-                    byte[,] aiCastle = DataManagement.GetFormation("ac");
+                    byte[,] aiCastle = DataManager.GetFormation("ac");
                     for (byte y = 0; y < 7; y++)
                     {
                         for (byte x = 0; x < 16; x++)
@@ -153,7 +153,7 @@ namespace Battle
                 }
                 else//玩家守城
                 {
-                    byte[,] hmCastle = DataManagement.GetFormation("hc");
+                    byte[,] hmCastle = DataManager.GetFormation("hc");
                     for (byte y = 0; y < 7; y++)
                     {
                         for (byte x = 0; x < 16; x++)
@@ -203,7 +203,7 @@ namespace Battle
         public void SelectFormation(int index)
         {
             // 初始化7行16列的阵型数组
-            byte[,] hmFormation = DataManagement.GetFormation($"h{index}");
+            byte[,] hmFormation = DataManager.GetFormation($"h{index}");
 
             // 遍历阵型，设置士兵位置
             for (byte y = 0; y < 7; y++)
@@ -242,7 +242,7 @@ namespace Battle
         public void AISelectFormation(int index)
         {
             // 初始化7行16列的阵型数组
-            byte[,] aiFormation =  DataManagement.GetFormation($"a{index}");
+            byte[,] aiFormation =  DataManager.GetFormation($"a{index}");
 
             // 遍历阵型，设置士兵位置
             for (byte y = 0; y < 7; y++)
@@ -277,7 +277,7 @@ namespace Battle
             if (BattleManager.Instance.isHmDef)//玩家守城
             {
                 // 解析阵型数据
-                formation = DataManagement.GetFormation("hc0");
+                formation = DataManager.GetFormation("hc0");
 
                 // 遍历阵型行列，分配士兵位置
                 for (byte y = 0; y < 7; y++)
@@ -321,7 +321,7 @@ namespace Battle
                 }
 
                 // 解析阵型数据
-                formation = DataManagement.GetFormation($"ac{fileIndex}");
+                formation = DataManager.GetFormation($"ac{fileIndex}");
 
                 // 遍历阵型行列，分配敌方士兵位置
                 for (byte y = 0; y < 7; y++)

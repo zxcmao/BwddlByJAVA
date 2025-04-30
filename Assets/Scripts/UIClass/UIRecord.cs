@@ -23,25 +23,31 @@ namespace UIClass
         public void Save()
         {
             gameObject.SetActive(true);
-            DataManagement.GetRecordInfo();
+            DataManager.GetRecordInfo();
             save1.GetComponent<TextMeshProUGUI>().text = GameInfo.recordInfo[0];
             save2.GetComponent<TextMeshProUGUI>().text = GameInfo.recordInfo[1];
             save3.GetComponent<TextMeshProUGUI>().text = GameInfo.recordInfo[2];
             save4.GetComponent<TextMeshProUGUI>().text = GameInfo.recordInfo[3];
+            save1.onValueChanged.RemoveAllListeners();
+            save2.onValueChanged.RemoveAllListeners();
+            save3.onValueChanged.RemoveAllListeners();
+            save4.onValueChanged.RemoveAllListeners();
+            confirmButton.onClick.RemoveAllListeners();
+            cancelButton.onClick.RemoveAllListeners();
             save1.onValueChanged.AddListener(delegate {
                 _recordIndex = 1;
                 confirmButton.gameObject.SetActive(true);
-                confirmButton.GetComponent<Button>().onClick.AddListener(OnConfirmButtonClicked);
+                confirmButton.onClick.AddListener(OnConfirmButtonClicked);
             });
             save2.onValueChanged.AddListener(delegate {
                 _recordIndex = 2;
                 confirmButton.gameObject.SetActive(true);
-                confirmButton.GetComponent<Button>().onClick.AddListener(OnConfirmButtonClicked);
+                confirmButton.onClick.AddListener(OnConfirmButtonClicked);
             });
             save3.onValueChanged.AddListener(delegate {
                 _recordIndex = 3;
                 confirmButton.gameObject.SetActive(true);
-                confirmButton.GetComponent<Button>().onClick.AddListener(OnConfirmButtonClicked);
+                confirmButton.onClick.AddListener(OnConfirmButtonClicked);
             });
             save4.onValueChanged.AddListener(delegate {
                 _recordIndex = 4;
@@ -58,12 +64,17 @@ namespace UIClass
             gameObject.SetActive(true);
             cancelButton.gameObject.SetActive(true);
             cancelButton.GetComponent<Button>().onClick.AddListener(OnCancelButtonClicked);
-            DataManagement.GetRecordInfo();
+            DataManager.GetRecordInfo();
             save1.GetComponent<TextMeshProUGUI>().text = GameInfo.recordInfo[0];
             save2.GetComponent<TextMeshProUGUI>().text = GameInfo.recordInfo[1];
             save3.GetComponent<TextMeshProUGUI>().text = GameInfo.recordInfo[2];
             save4.GetComponent<TextMeshProUGUI>().text = GameInfo.recordInfo[3];
-            
+            save1.onValueChanged.RemoveAllListeners();
+            save2.onValueChanged.RemoveAllListeners();
+            save3.onValueChanged.RemoveAllListeners();
+            save4.onValueChanged.RemoveAllListeners();
+            confirmButton.onClick.RemoveAllListeners();
+            cancelButton.onClick.RemoveAllListeners();
             if(save1.GetComponent<TextMeshProUGUI>().text != "尚无存档")
             { 
                 save1.onValueChanged.RemoveAllListeners();
@@ -130,7 +141,9 @@ namespace UIClass
         private void OnConfirmButtonClicked()
         {
             gameObject.SetActive(false);
+            confirmButton.onClick.RemoveAllListeners();
             confirmButton.gameObject.SetActive(false);
+            cancelButton.onClick.RemoveAllListeners();
             cancelButton.gameObject.SetActive(false);
             RecordIndex?.Invoke(_recordIndex);
         }
@@ -138,7 +151,9 @@ namespace UIClass
         private void OnCancelButtonClicked()
         {
             gameObject.SetActive(false);
+            confirmButton.onClick.RemoveAllListeners();
             confirmButton.gameObject.SetActive(false);
+            cancelButton.onClick.RemoveAllListeners();
             cancelButton.gameObject.SetActive(false);
             RecordIndex?.Invoke(0);
         }

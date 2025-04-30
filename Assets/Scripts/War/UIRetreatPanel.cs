@@ -19,8 +19,7 @@ namespace War
         private bool _allRetreat = false; // 是否是全体撤退模式
         public bool _withCommander = false; // 是否包含主将
         
-        // 事件：所有将军撤退完成
-        public event Action AllRetreatOver;
+        
 
         /// <summary>
         /// 仅撤退当前将军（适用于普通将军、主将撤退前）
@@ -40,13 +39,13 @@ namespace War
         /// <summary>
         /// 主将战死或被俘，所有将军必须撤退（强制撤退）
         /// </summary>
-        public void MustRetreat(Action allRetreatOver)
+        public void MustRetreat()
         {
             gameObject.SetActive(true);
+            closeButton.onClick.RemoveAllListeners();
             closeButton.gameObject.SetActive(false); // 禁止取消撤退
 
             _allRetreat = true;
-            AllRetreatOver = allRetreatOver;
             ProcessNextRetreat();
         }
 
@@ -60,12 +59,10 @@ namespace War
                 // 所有单位撤退完毕
                 _allRetreat = false;
                 HideRetreatPanel();
-            
-                // 触发所有将军撤退完成事件
-                AllRetreatOver?.Invoke();
-                _withCommander = false;
                 
-                AllRetreatOver -= WarManager.Instance.PlayerWithdraw;
+                _withCommander = false;
+                // 触发所有将军撤退完成事件
+                WarManager.Instance.PlayerWithdraw();
                 return;
             }
 
@@ -80,26 +77,25 @@ namespace War
         private void CreateRetreatCityOption()
         {
             City warCity = CityListCache.GetCityByCityId(WarManager.Instance.curWarCityId);
-            Debug.Log($"当前战争城池:{warCity.cityName},所属君主:{warCity.cityBelongKing},所属势力:{CountryListCache.GetCountryByKingId(warCity.cityBelongKing)}");
+            Debug.Log($"当前战争城池:{warCity.cityName},所属君主:{warCity.ownerID},所属势力:{CountryListCache.GetCountryByKingId(warCity.ownerID)}");
             Country country = CountryListCache.GetCountryByCountryId(GameInfo.playerCountryId);
-            Debug.Log($"当前国家：{country.countryId}" + $"当前国家君主：{country.KingName()},城池ID有:" + string.Join(", ", country.cityIDs));
-            List<byte> retreatCityId = WarManager.GetRetreatCityList(WarManager.Instance.hmKingId);
-            Debug.Log($"撤退城池ID有" + string.Join(", ", retreatCityId));
+            Debug.Log($"当前势力君主：{country.KingName()},城池ID有:" + string.Join(", ", country.cityIDs));
+            List<byte> retreatCityId = WarManager.GetRetreatCityList();
+            Debug.Log("可撤退城池ID有" + string.Join(", ", retreatCityId));
             foreach (Transform child in retreatRoom)
             {
                 Destroy(child.gameObject);
             }
-
-            if (country.IsEndangered() && retreatCityId.Count == 0)
+            
+            retreatText.text = $"{_retreatUnitObj.name} 欲往何处?";
+            
+            if (retreatCityId.Count == 0)
             {
                 UIWar.Instance.NotifyWarEvent("无城可退！背水一战吧");
                 HideRetreatPanel();
                 return;
             }
-            
-            General general = GeneralListCache.GetGeneral(_retreatUnitObj.genID);
-            retreatText.text = $"{general.generalName} 欲往何处?";
-            if (retreatCityId != null && retreatCityId.Count != 0)
+            else
             {
                 foreach (byte cityId in retreatCityId)
                 {
@@ -121,7 +117,7 @@ namespace War
                 TextMeshProUGUI retireText = retireOption.GetComponentInChildren<TextMeshProUGUI>();
                 retireText.text = "下野";
                 retireText.color = Color.red;
-                retireButton.onClick.AddListener(() => OnClickRetireButton(general.generalId));
+                retireButton.onClick.AddListener(() => OnClickRetireButton());
             }
         }
 
@@ -130,14 +126,20 @@ namespace War
         /// </summary>
         void OnClickRetreatOptionButton(byte cityId)
         {
-            if (cityId <= 0) return;
+            City city = CityListCache.GetCityByCityId(cityId);
+            if (city == null) return;
 
-            Debug.Log($"{_retreatUnitObj.name} 撤退至 {CityListCache.GetCityByCityId(cityId).cityName}");
+            Debug.Log($"{_retreatUnitObj.name} 撤退至 {city.cityName}");
 
-            bool isCommander = !_retreatUnitObj.HandleGeneralRetreat(cityId); // 判断是否是主将撤退
+            bool isCommander = _retreatUnitObj.IsCommanderRetreat(cityId); // 判断是否是主将撤退
 
             if (isCommander)
             {
+                city.AddGold(WarManager.Instance.hmGold);
+                city.AddFood(WarManager.Instance.hmFood);
+                if (WarManager.Instance.isHmDef)
+                    city.AddTreasureNum(CityListCache.GetCityByCityId(WarManager.Instance.curWarCityId).GetTreasureNum());
+                
                 Debug.Log($"主将 {_retreatUnitObj.name} 已撤退，其他将军开始撤退");
 
                 closeButton.gameObject.SetActive(false); // 禁止取消
@@ -159,9 +161,9 @@ namespace War
         /// <summary>
         /// 武将撤退下野
         /// </summary>
-        void OnClickRetireButton(short generalId)
+        void OnClickRetireButton()
         {
-            Debug.Log($"{GeneralListCache.GetGeneral(generalId).generalName} 下野了," +
+            Debug.Log($"{_retreatUnitObj} 下野了," +
                       $"{CityListCache.GetCityByCityId(WarManager.Instance.curWarCityId).cityName}中已有{CityListCache.GetCityByCityId(WarManager.Instance.curWarCityId).GetCityNotFoundGeneralNum()}隐居");
 
             bool isCommander = !_retreatUnitObj.HandleGeneralRetire(); // 判断是否是主将下野

@@ -1,0 +1,257 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: EventImage
+  m_EditorClassIdentifier: 
+  m_GroupName: EventImage
+  m_GUID: 0ace562d8516f5749bec35c8ed7402bb
+  m_SerializeEntries:
+  - m_GUID: 0c8dd00f5d827514ea6bb1c7c2d6512a
+    m_Address: Assets/Image/Event/AIvsPlayer.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0daa35d07c155144fbd14cc094d28756
+    m_Address: Assets/Image/Event/Hospital.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0f12bd0fe6421e641b665c5f5c5920ad
+    m_Address: Assets/Image/Event/AILose.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 112db7b46a41a7f46ace875bc9985902
+    m_Address: Assets/Image/Event/Tax.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1f940876b457f7a499811122767395f4
+    m_Address: Assets/Image/Event/Rebuild.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2204c612386ff9d43aef3744e0fa3261
+    m_Address: Assets/Image/Event/Plunder.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 248cc251255e7eb4686f03cec4e4108a
+    m_Address: Assets/Image/Event/Transport.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2d11e22131bdff54992c73b727065f64
+    m_Address: Assets/Image/Event/Death.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2f3f4b89aade4f0408ff9650a2c05ef4
+    m_Address: Assets/Image/Event/Truce.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 30853e544f13a7846a68610c5438368a
+    m_Address: Assets/Image/Event/Join.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 399c67b400bc80c42823a446a0f419f1
+    m_Address: Assets/Image/Event/Loot.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 39f375466bdcafc419ab23f6339f8571
+    m_Address: Assets/Image/Event/Tame.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 49858b248aa06e4449ec7f29e918f647
+    m_Address: Assets/Image/Event/Conscript.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4ad54f588eeb41b49a9e475b05dbe0cd
+    m_Address: Assets/Image/Event/GameOver.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4c4837730e3df64468a10f086728391c
+    m_Address: Assets/Image/Event/Retire.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4cd54760885f8fe45a27488be678bb4a
+    m_Address: Assets/Image/Event/Search.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 523d652fd5d526844b61697189c97b0d
+    m_Address: Assets/Image/Event/Reclaim.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 54c4c102b9c987042a660cc14baa4a46
+    m_Address: Assets/Image/Event/Duel.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 56ee53758493e2445872cf2a28be5a19
+    m_Address: Assets/Image/Event/Rebel.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 58542bb9ff709ba408052ffc898404b0
+    m_Address: Assets/Image/Event/Patrol.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5aa0511a42e11bb47b611a4c2c084043
+    m_Address: Assets/Image/Event/Drought.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 609e2c465e34ae446bfb473e972b719a
+    m_Address: Assets/Image/Event/Harvest.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 68fbeaa38616e6644b5289551d10c73a
+    m_Address: Assets/Image/Event/Smithy.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7fe1c3d9c499be046837897516f8f03c
+    m_Address: Assets/Image/Event/Famine.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 84408f340f7fb5d4a9269e62936e9246
+    m_Address: Assets/Image/Event/Flood.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8d9c13ca63e295e4db1156420024411b
+    m_Address: Assets/Image/Event/LocustPlague.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9871eb896812d784992f59a899216f3b
+    m_Address: Assets/Image/Event/Inherit.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a4061fad786a55547931a97b0d38e61b
+    m_Address: Assets/Image/Event/Bribe.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a76ce6f81bfd68541bcd18b5eb8978d4
+    m_Address: Assets/Image/Event/AIWin.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b84636c65616a2c40bea7c3a496dc615
+    m_Address: Assets/Image/Event/Shop.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: bb411f919f60fea4aa07144e94631c81
+    m_Address: Assets/Image/Event/Plague.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c3b5f0cd853eca34b98fa2445815fa18
+    m_Address: Assets/Image/Event/Occupy.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c4baffb57a5d03f4fbdf43372bb47efa
+    m_Address: Assets/Image/Event/Reward.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: cd1bfcc0ea0d2004699dd2806dedf6dc
+    m_Address: Assets/Image/Event/Turmoil.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d1989b0d74c7e0242abd946d4b48ee5a
+    m_Address: Assets/Image/Event/AIAttack.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: dff439227a1098b42810bda53b6b7e46
+    m_Address: Assets/Image/Event/Alienate.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ea3a16e944a7e3a45a1ae6951124ff20
+    m_Address: Assets/Image/Event/Mercantile.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f1843b6e394a31d418fac0a4f8dd5712
+    m_Address: Assets/Image/Event/GameWin.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f6048324adaf1634d802f3dffda7728f
+    m_Address: Assets/Image/Event/Study.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - EventImage
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 4d81225103f817f439bd10945925ca66, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 89f996e189b7322428fb1843df895d19, type: 2}
+    - {fileID: 11400000, guid: 40f2bed032feb54448b4e143f721d3f4, type: 2}

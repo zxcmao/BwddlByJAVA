@@ -79,7 +79,7 @@ public class UITurnTips : MonoBehaviour
                 image.texture = Resources.Load<Texture2D>("UI/TipsImage/TurnTips/AiAlienate");
                 break;
             case GameState.AIBribe:
-                image.texture = Resources.Load<Texture2D>("UI/TipsImage/TurnTips/AiBribe");
+                image.texture = Resources.Load<Texture2D>("UI/TipsImage/TurnTips/AIPoach");
                 break;
             case GameState.Rebel:
                 image.texture = Resources.Load<Texture2D>("UI/TipsImage/TurnTips/Rebel");

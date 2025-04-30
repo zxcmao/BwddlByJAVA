@@ -291,7 +291,7 @@ namespace BaseClass
         {
             Image image = gameObject.GetComponent<Image>();
             General general = GeneralListCache.GetGeneral(genID);
-            int soldier = general.generalSoldier / 300;
+            int soldier = general.soldiers / 300;
             SpriteAtlas spriteAtlas = Resources.Load<SpriteAtlas>("War/Unit/UnitAtlas"); // 部队的精灵
             switch (Terrain)
             {
@@ -371,7 +371,7 @@ namespace BaseClass
             MapManager.Instance.ClearAllMarkers(); // 清除所有标记
 
             // 标记为已经移动
-            //SetIsMoved(true);
+            SetIsMoved(true);
 
             // 更新将军贴图
             GetArmySprite();
@@ -463,7 +463,7 @@ namespace BaseClass
                 {
                     GeneralListCache.GeneralDie(genID);  // 处理将军死亡逻辑
                     Remove(UnitState.Dead);// AI主将先移除
-                    AIWar.AIFollowRetreat();  //AI全军撤退方法
+                    AIWar.AIAllRetreat();  //AI全军撤退方法
                     WarManager.Instance.AfterWarSettlement(true, true);  // 调用战斗结束逻辑
                     return false;
                 }
@@ -499,7 +499,7 @@ namespace BaseClass
                 if (IsCommander)  // 检查AI主要将军是否被俘
                 {
                     Remove(UnitState.Captive);// AI主将先移除
-                    AIWar.AIFollowRetreat();  //AI全军撤退方法
+                    AIWar.AIAllRetreat();  //AI全军撤退方法
                     WarManager.Instance.AfterWarSettlement(true, true);  // 调用战斗结束逻辑
                     return false;
                 }
@@ -510,40 +510,28 @@ namespace BaseClass
             return true;
         }
         
-        //撤退按钮后处理武将撤退
-        public bool HandleGeneralRetreat(byte cityId)
+        /// <summary>
+        /// 执行武将撤退逻辑
+        /// </summary>
+        /// <param name="cityId">撤退到的城池ID</param>
+        /// <returns>是否是主将撤退，主将撤退返回true，普通将领撤退返回false</returns>
+        public bool IsCommanderRetreat(byte cityId)
         {
-            if (isPlayer)
-            {
-                if (IsCommander)
-                {
-                    WarManager.RetreatGeneralToCity(this, cityId, WarManager.Instance.hmKingId);
-                    Remove(UnitState.Retreat);
-                    if (WarManager.Instance.hmUnits.Count <= 0)  // 如果还有其他的将军则先执行强制撤退
-                    {
-                        WarManager.Instance.AfterWarSettlement(false, false);  // 调用战斗结束逻辑
-                    }
-                    return false;
-                }
-                // 如果撤退的是玩家非主将
-                WarManager.RetreatGeneralToCity(this, cityId, WarManager.Instance.hmKingId);
-                Remove(UnitState.Retreat);
-            }
-            else
-            {
-                /*if (IsCommander)  // 检查AI主要将军是否撤退
-                {
-                    //AI全军撤退方法
-                    AIWar.SingletonRetreat(data);
-                    AIWar.AIFollowRetreat();
-                    WarManager.Instance.AfterWarSettlement(true, true);  // 调用战斗结束逻辑
-                    return false;
-                }
+            // 确定当前阵营君主ID（玩家或AI）
+            short kingId = isPlayer ? WarManager.Instance.hmKingId : WarManager.Instance.aiKingId;
 
-                AIWar.SingletonRetreat(data);*/
-            }
-            return true;
+            bool isCaptured = unitState == UnitState.Captive;
+            bool isCommanderRetreat = !isCaptured && IsCommander; // 判断是否是主将撤退(一般不会出现主将被俘虏需要撤退的情况)
+
+            // 执行撤退逻辑
+            WarManager.RetreatGeneralToCity(genID, cityId, isPlayer, isCaptured);
+
+            // 从战场单位列表中移除撤退标记
+            Remove(UnitState.Retreat);
+
+            return isCommanderRetreat;
         }
+
         
         //处理武将下野
         public bool HandleGeneralRetire()
@@ -566,7 +554,7 @@ namespace BaseClass
             {
                 if (IsCommander)
                 {
-                    AIWar.AIFollowRetreat();
+                    AIWar.AIAllRetreat();
                     WarManager.Instance.AfterWarSettlement(true, true);  // 调用战斗结束逻辑
                     return false;
                 }

@@ -21,6 +21,7 @@ namespace TurnClass.AITurnStateMachine
         AIVsPlayer,
         AIAnnihilate,
         AISchool,
+        AIWait
     }
 
     public interface IState
@@ -104,6 +105,16 @@ namespace TurnClass.AITurnStateMachine
         public override void OnEnter()
         {
             Debug.Log(stateMachine.CurAITurn.AIName + "进入空闲状态");
+            UIGlobe uiGlobe = GameObject.Find("Canvas")?.GetComponent<UIGlobe>();
+            if (uiGlobe == null)
+            {
+                Debug.LogError("UIGlobe not found. Cannot display confirmation UI.");
+            }
+            else
+            {
+                uiGlobe.UpdateTurnInfo(stateMachine.CurAITurn.AIName + " 战略中...");
+            }
+            
             if (stateMachine.CurAITurn.CanAIDoOrder())
             {
                 stateMachine.ChangeState(AITurnState.AIAlliance);
@@ -136,14 +147,11 @@ namespace TurnClass.AITurnStateMachine
         public override void OnEnter()
         {
             Debug.Log(stateMachine.CurAITurn.AIName + "进入联盟状态");
-        }
-
-        public override void OnUpdate()
-        {
+            
             if (stateMachine.CurAITurn.AiAlliance(out string text))
             {
                 // 示例：暂停并等待玩家确认
-                PauseForPlayerConfirmation(text, GameState.AITruce, () =>
+                PauseForPlayerConfirmation(text, GameState.Truce, () =>
                 {
                     Debug.Log("玩家确认后切换到内政状态");
                     stateMachine.ChangeState(AITurnState.AIInterior);
@@ -153,6 +161,11 @@ namespace TurnClass.AITurnStateMachine
             {
                 stateMachine.ChangeState(AITurnState.AIInterior);
             }
+        }
+
+        public override void OnUpdate()
+        {
+            
         }
 
         public override void OnExit()
@@ -170,60 +183,55 @@ namespace TurnClass.AITurnStateMachine
         public override void OnEnter()
         {
             Debug.Log(stateMachine.CurAITurn.AIName + "进入内政状态");
-        }
-
-        public override void OnUpdate()
-        {
-            var interior = stateMachine.CurAITurn.AiInterior();
+            
+            var interior = stateMachine.CurAITurn.AiInterior(out byte cityId);
+            var city = CityListCache.GetCityByCityId(cityId);
+            Debug.Log("AI选择在" + city.cityName + "内政行动: " + interior);
             // 根据随机结果选择内政行动
             switch (interior)
             {
                 case 0:
-                    stateMachine.CurAITurn.AiTameOrder();
+                    AITurn.AiTameOrder(city);
                     stateMachine.ChangeState(AITurnState.AISearch);
                     break;
                 case 1:
-                    stateMachine.CurAITurn.AiReclaimOrder();
+                    AITurn.AiReclaimOrder(city);
                     stateMachine.ChangeState(AITurnState.AISearch);
                     break;
                 case 2:
-                    stateMachine.CurAITurn.AiMercantileOrder();
+                    AITurn.AiMercantileOrder(city);
                     stateMachine.ChangeState(AITurnState.AISearch);
                     break;
                 case 3:
                 case 4:
-                    stateMachine.CurAITurn.AiPatrolOrder();
+                    AITurn.AiPatrolOrder(city);
                     stateMachine.ChangeState(AITurnState.AISearch);
                     break;
                 case 5:
                 case 6:
-                    if (stateMachine.CurAITurn.AiJudgeBribe(out short doGenId, out short beGenId, out byte beCityId,
-                            out byte doCityId))
+                    byte i = stateMachine.CurAITurn.AIPoachOrAlienate(out string result);
+                    if (i == 1)
                     {
-                        // 判断招揽成功
-                        if (stateMachine.CurAITurn.AiBribe(doCityId, beCityId, doGenId, beGenId, out string result))
+                        // 示例：暂停并等待玩家确认
+                        PauseForPlayerConfirmation(result, GameState.Bribe, () =>
                         {
-                            // 示例：暂停并等待玩家确认
-                            PauseForPlayerConfirmation(result, GameState.AIBribe, () =>
-                            {
-                                Debug.Log("玩家确认后切换到搜索状态");
-                                stateMachine.ChangeState(AITurnState.AISearch);
-                            });
-                        }
-                        else // 如果招揽失败，执行离间操作
-                        {
-                            if (stateMachine.CurAITurn.AiAlienate(beCityId, doGenId, beGenId, out string result2))
-                            {
-                                // 示例：暂停并等待玩家确认
-                                PauseForPlayerConfirmation(result2, GameState.AIAlienate, () =>
-                                {
-                                    Debug.Log("玩家确认后切换到搜索状态");
-                                    stateMachine.ChangeState(AITurnState.AISearch);
-                                });
-                            }
-                        }
+                            Debug.Log("玩家确认后切换到搜索状态");
+                            stateMachine.ChangeState(AITurnState.AISearch);
+                        });
                     }
-
+                    else if (i == 2) // 如果招揽失败，执行离间操作
+                    {
+                        // 示例：暂停并等待玩家确认
+                        PauseForPlayerConfirmation(result, GameState.Truce, () =>
+                        {
+                            Debug.Log("玩家确认后切换到搜索状态");
+                            stateMachine.ChangeState(AITurnState.AISearch);
+                        });
+                    }
+                    else
+                    {
+                        stateMachine.ChangeState(AITurnState.AISearch);
+                    }
                     break;
                 case 7:
                 case 8:
@@ -231,6 +239,11 @@ namespace TurnClass.AITurnStateMachine
                     stateMachine.ChangeState(AITurnState.AISearch);
                     break;
             }
+        }
+
+        public override void OnUpdate()
+        {
+            
         }
 
         public override void OnExit()
@@ -371,10 +384,6 @@ namespace TurnClass.AITurnStateMachine
         public override void OnEnter()
         {
             Debug.Log(stateMachine.CurAITurn.AIName + "进入攻击状态");
-        }
-
-        public override void OnUpdate()
-        {
             
             if (stateMachine.CurAITurn.AIAttack())
             {
@@ -382,7 +391,7 @@ namespace TurnClass.AITurnStateMachine
                 if (kind == 0)
                 {
                     // 示例：暂停并等待玩家确认
-                    PauseForPlayerConfirmation(result, GameState.AIOccupy, () =>
+                    PauseForPlayerConfirmation(result, GameState.Occupy, () =>
                     {
                         Debug.Log("玩家确认后切换到学院状态");
                         stateMachine.CurAITurn.AIConscription();
@@ -393,7 +402,7 @@ namespace TurnClass.AITurnStateMachine
                 else if (kind == 1)
                 {
                     // 暂停并等待玩家确认AI攻打AI
-                    PauseForPlayerConfirmation(result, GameState.AIvsAI, () =>
+                    PauseForPlayerConfirmation(result, GameState.AIAttack, () =>
                     {
                         Debug.Log("玩家确认后切换到AI相互战争状态");
                         stateMachine.ChangeState(AITurnState.AIvsAI);
@@ -405,9 +414,9 @@ namespace TurnClass.AITurnStateMachine
                     // 暂停并等待玩家确认AI攻打玩家
                     PauseForPlayerConfirmation(result, GameState.AIvsPlayer, () =>
                     {
-                        Debug.Log("玩家确认后切换到搜索状态");
+                        Debug.Log("玩家确认后切换到对战玩家状态");
                         UnityEngine.SceneManagement.SceneManager.LoadScene("WarScene");
-                        stateMachine.ChangeState(AITurnState.AIVsPlayer);
+
                     });
                 }
             }
@@ -415,6 +424,12 @@ namespace TurnClass.AITurnStateMachine
             {
                 stateMachine.ChangeState(AITurnState.AISchool);
             }
+        }
+
+        public override void OnUpdate()
+        {
+            
+            
         }
 
         public override void OnExit()
@@ -432,15 +447,11 @@ namespace TurnClass.AITurnStateMachine
         public override void OnEnter()
         {
             Debug.Log(stateMachine.CurAITurn.AIName + "进入AIvsAI状态");
-        }
-
-        public override void OnUpdate()
-        {
             // 判断AI是否能够战胜AI
             if (stateMachine.CurAITurn.IsAIWinAI(out string result))
             {
                 // 战胜后判断是否消灭防守方AI势力
-                PauseForPlayerConfirmation(result, GameState.AIWinAI, () =>
+                PauseForPlayerConfirmation(result, GameState.AIWin, () =>
                 {
                     Debug.Log("玩家确认后切换到消灭状态");
                     stateMachine.ChangeState(AITurnState.AIAnnihilate);
@@ -455,12 +466,17 @@ namespace TurnClass.AITurnStateMachine
                 //yield return TurnManager.Instance.uiGlobe.tips.ShowTurnTips(lose, GameState.AILoseAI);
                 //IsRetreat(defCity, generalIds, _country.countryKingId, needFood, needMoney);
                 // 示例：暂停并等待玩家确认
-                PauseForPlayerConfirmation(result, GameState.AILoseAI, () =>
+                PauseForPlayerConfirmation(result, GameState.AILose, () =>
                 {
                     Debug.Log("玩家确认后切换到学院状态");
                     stateMachine.ChangeState(AITurnState.AISchool);
                 });
             }
+        }
+
+        public override void OnUpdate()
+        {
+            
         }
         
         public override void OnExit()
@@ -480,17 +496,14 @@ namespace TurnClass.AITurnStateMachine
         public override void OnEnter()
         {
             Debug.Log(stateMachine.CurAITurn.AIName + "进入判断消灭势力状态");
+            
             _annihilateState = stateMachine.CurAITurn.AIAnnihilate(out string result);
             _result = result;
-        }
-
-        public override void OnUpdate()
-        {
             // 已经胜利，判断AI是否能够歼灭AI
             if (_annihilateState == 2)
             {
                 // 暂停并等待玩家确认被攻击方被消灭
-                PauseForPlayerConfirmation(_result, GameState.AIFail, () =>
+                PauseForPlayerConfirmation(_result, GameState.GameOver, () =>
                 {
                     Debug.Log("玩家确认后切换到学院状态");
                     stateMachine.CurAITurn.AIConscription();
@@ -501,7 +514,7 @@ namespace TurnClass.AITurnStateMachine
             else if (_annihilateState == 1)
             {
                 // 暂停并等待玩家确认被攻击方继承
-                PauseForPlayerConfirmation(_result, GameState.AIInherit, () =>
+                PauseForPlayerConfirmation(_result, GameState.Inherit, () =>
                 {
                     Debug.Log("玩家确认后切换到学院状态");
                     stateMachine.CurAITurn.AIConscription();
@@ -515,6 +528,11 @@ namespace TurnClass.AITurnStateMachine
                 stateMachine.CurAITurn.AIHospital();
                 stateMachine.ChangeState(AITurnState.AISchool);
             }
+        }
+
+        public override void OnUpdate()
+        {
+           
         }
         
         public override void OnExit()
@@ -536,7 +554,7 @@ namespace TurnClass.AITurnStateMachine
         {
             isWarEnd = true;
             GameInfo.PlayingState = GameState.AITurn;
-            WarManager.Instance.OnWarOver -= WarOver;
+            TurnManager.Instance.OnPlayerConfirm -= WarOver;
         }
         public override void OnEnter()
         {
@@ -544,8 +562,8 @@ namespace TurnClass.AITurnStateMachine
             hasChangedState = false;
 
             // 确保事件不会重复注册
-            WarManager.Instance.OnWarOver -= WarOver;
-            WarManager.Instance.OnWarOver += WarOver;
+            TurnManager.Instance.OnPlayerConfirm -= WarOver;
+            TurnManager.Instance.OnPlayerConfirm += WarOver;
 
             Debug.Log(stateMachine.CurAITurn.AIName + "进入对战玩家状态");
         }

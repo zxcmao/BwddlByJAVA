@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
 
 namespace War
 {
@@ -284,7 +285,7 @@ namespace War
             Debug.Log($"摄像机信息：正交大小 = {_camera.orthographicSize}, 宽高比 = {_camera.aspect}, 视野宽度 = {cameraWidth}");
         }
 
-        // 鼠标移动时调用
+        /*// 鼠标移动时调用
         private void OnMouseDelta(InputAction.CallbackContext context)
         {
             // 如果计谋面板处于活动状态，禁止摄像头移动
@@ -297,7 +298,7 @@ namespace War
                 MoveCamera();
             }
         }
-
+        
         // 触控移动时调用
         private void OnTouchDelta(InputAction.CallbackContext context)
         {
@@ -335,7 +336,67 @@ namespace War
             {
                 isTouching = false; // 触摸结束，停止移动
             }
+        }*/
+        private bool wantMoveTouch = false;
+        private bool wantMoveMouse = false;
+
+        private Vector2 touchDelta;
+        private Vector2 mouseDelta;
+        private void OnMouseDelta(InputAction.CallbackContext context)
+        {
+            if (Mouse.current.leftButton.isPressed && WarManager.Instance != null && WarManager.Instance.warState == WarState.PlayerTurn)
+            {
+                mouseDelta = context.ReadValue<Vector2>();
+                wantMoveMouse = true;
+            }
         }
+
+        private void OnTouchDelta(InputAction.CallbackContext context)
+        {
+            if (Touchscreen.current == null || WarManager.Instance == null || WarManager.Instance.warState != WarState.PlayerTurn)
+                return;
+
+            var touch = Touchscreen.current.touches[0];
+
+            if (touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Began)
+            {
+                isTouching = true;
+                lastTouchPosition = touch.position.ReadValue();
+            }
+            else if (touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Moved && isTouching)
+            {
+                Vector2 touchPosition = touch.position.ReadValue();
+                touchDelta = touchPosition - lastTouchPosition;
+                lastTouchPosition = touchPosition;
+                wantMoveTouch = true; // 标记想移动
+            }
+            else if (touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Ended ||
+                     touch.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Canceled)
+            {
+                isTouching = false;
+                wantMoveTouch = false;
+            }
+        }
+
+        private bool IsPointerOverUI()
+        {
+            if (EventSystem.current == null)
+                return false;
+
+            #if UNITY_EDITOR || UNITY_STANDALONE
+                        return EventSystem.current.IsPointerOverGameObject();
+            #elif UNITY_ANDROID || UNITY_IOS
+                if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed)
+                {
+                    int touchId = Touchscreen.current.primaryTouch.touchId.ReadValue();
+                    return EventSystem.current.IsPointerOverGameObject(touchId);
+                }
+                return false;
+            #else
+                return false;
+            #endif
+        }
+
 
         // 停止移动
         private void StopMovement(InputAction.CallbackContext context)
@@ -418,6 +479,26 @@ namespace War
                     targetPosition.y = fixedYPosition;
                     
                     transform.position = Vector3.Lerp(transform.position, targetPosition, followSpeed * Time.deltaTime);
+                }
+            }
+            else
+            {
+                if (UIWar.Instance != null && UIWar.Instance.uiPlanPanel.gameObject.activeInHierarchy)
+                    return;
+
+                if (wantMoveTouch && !IsPointerOverUI())
+                {
+                    float touchSensitivity = 2.0f;
+                    _moveDirection = new Vector3(-touchDelta.x, -touchDelta.y, 0) * moveSpeed * Time.deltaTime * touchSensitivity;
+                    MoveCamera();
+                    wantMoveTouch = false; // 移动完清空
+                }
+
+                if (wantMoveMouse && !IsPointerOverUI())
+                {
+                    _moveDirection = new Vector3(-mouseDelta.x, -mouseDelta.y, 0) * moveSpeed * Time.deltaTime;
+                    MoveCamera();
+                    wantMoveMouse = false; // 移动完清空
                 }
             }
         }

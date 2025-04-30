@@ -29,135 +29,6 @@ namespace War
             bestPlanId = 255;
         }
         
-        IEnumerator AIExecute(UnitObj aiUnitObj)
-        {
-            if (aiUnitObj.IsCommander)
-            {
-                if (IsAICommanderRetreat())
-                {
-                    SingletonRetreat();
-                    AIFollowRetreat();
-                    yield return UIWar.Instance.uiTips. ShowNoticeTips("敌军全军撤退");
-                    yield break;
-                }
-            }
-            else
-            {
-                if (IsAIUnitRetreat())
-                {
-                    SingletonRetreat();
-                    yield return UIWar.Instance.uiTips.ShowNoticeTips("敌将逃遁");
-                    yield break;
-                }
-            }
-
-            //判断是否要逃跑
-            // 如果 AI 单位尚未行动
-            if (aiUnitObj.unitState != UnitState.Idle)
-            {
-                if (aiUnitObj.IsCommander && !WarManager.Instance.isHmDef) // 特殊处理AI主将坚守城池
-                {
-                    Debug.Log("主将守城");
-                    // 循环处理 AI 的行动直到完成
-                    while (aiUnitObj.unitState != UnitState.Idle)
-                    {
-                        if (GetBestPlanTarget(0))
-                        {
-                            AIExecutePlan();
-                            yield return new WaitForSeconds(_aiInterval);
-                            continue;
-                        }
-
-                        aiUnitObj.SetUnitState(UnitState.Idle);
-                    }
-                }
-                // 处理其他移动过的 AI 单位
-                else if (aiUnitObj.isMoved)
-                {
-                    // 循环处理 AI 的行动直到完成
-                    while (aiUnitObj.unitState != UnitState.Idle)
-                    {
-                        if (GetBestPlanTarget(35))
-                        {
-                            AIExecutePlan();
-                            yield return new WaitForSeconds(_aiInterval);
-                            continue;
-                        }
-
-                        // 判断 AI 是否可以攻击
-                        if (aiUnitObj.moveBonus >= 2)
-                        {
-                            if (GetBestBattleTarget(GetBattleScore))
-                            {
-                                aiUnitObj.SubMoveBonus(2);
-                                if (aiUnitObj.moveBonus < 2)
-                                    aiUnitObj.SetUnitState(UnitState.Idle);
-                                AIExecuteBattle();
-                                yield return WarManager.Instance.battleState == BattleState.BattleOver;
-                                yield return new WaitForSeconds(_aiInterval);
-                                yield break; // 攻击后返回不在执行下面的移动
-                            }
-                        }
-
-                        // 如果没有攻击目标，判断最后是否可以用计，此次判断不考虑成功率，即机动力满足就用计
-                        if (GetBestPlanTarget(0))
-                        {
-                            AIExecutePlan();
-                            yield return new WaitForSeconds(_aiInterval);
-                            continue;
-                        }
-
-                        aiUnitObj.SetUnitState(UnitState.Idle);
-                    }
-                }
-                else // 处理其他还没移动过的 AI 单位
-                {
-                    yield return AIGetMovePath(aiUnitObj, AIMoveMap());
-                    yield return null;
-                    Debug.Log($"AI:{aiUnitObj.genID}移动完成");
-                    // 移动过但还有机动力的武将
-                    if (aiUnitObj.isMoved && aiUnitObj.unitState != UnitState.Idle)
-                    {
-                        while (aiUnitObj.unitState != UnitState.Idle)
-                        {
-                            UnitObj tarHmUnitObj = null;
-                            byte bestPlanId = 255;
-                            if (GetBestPlanTarget( 35))
-                            {
-                                AIExecutePlan();
-                                yield return new WaitForSeconds(_aiInterval);
-                                continue;
-                            }
-
-                            if (aiUnitObj.moveBonus >= 2)
-                            {
-                                if (GetBestBattleTarget(GetBattleIqScore))
-                                {
-                                    aiUnitObj.SubMoveBonus(2);
-                                    if (aiUnitObj.moveBonus < 2)
-                                        aiUnitObj.SetUnitState(UnitState.Idle);
-                                    AIExecuteBattle();
-                                    yield return WarManager.Instance.battleState == BattleState.BattleOver;
-                                    yield return new WaitForSeconds(_aiInterval);
-                                    yield break;
-                                }
-                            }
-
-                            if (GetBestPlanTarget(0))
-                            {
-                                AIExecutePlan();
-                                yield return new WaitForSeconds(_aiInterval);
-                                continue;
-                            }
-
-                            aiUnitObj.SetUnitState(UnitState.Idle);
-                            Debug.Log($"AI单位:{aiUnitObj.genID}的行动完成");
-                        }
-                    }
-                }
-            }
-        }
-        
         /// <summary>
         /// 判断AI主将是否撤退
         /// </summary>
@@ -165,7 +36,7 @@ namespace War
         public bool IsAICommanderRetreat()
         {
             // 检查是否满足撤退条件
-            List<byte> retreatCityIdList = WarManager.AIGetRetreatCityList(WarManager.Instance.aiKingId);
+            List<byte> retreatCityIdList = WarManager.AIGetRetreatCityList();
             if (retreatCityIdList == null || retreatCityIdList.Count == 0)
             {
                 return false;
@@ -183,15 +54,15 @@ namespace War
                 return true;
 
             // 计算额外士兵数量
-            int k = aiCommander.lead * aiCommander.generalSoldier * 3 / 2;
+            int k = aiCommander.lead * aiCommander.soldiers * 3 / 2;
             j += k;
 
             // 判断是否满足撤退条件
-            if (j * 3 < i * 2 && aiCommander.generalSoldier <= 250)
+            if (j * 3 < i * 2 && aiCommander.soldiers <= 250)
                 return true;
 
             // 最终判断是否撤退
-            return !(aiCommander.generalSoldier >= 100 && (aiCommander.generalSoldier >= 400 || aiCommander.GetCurPhysical() >= 15));
+            return !(aiCommander.soldiers >= 100 && (aiCommander.soldiers >= 400 || aiCommander.GetHP() >= 15));
         }
 
         /// <summary>
@@ -213,7 +84,7 @@ namespace War
         public bool IsAIUnitRetreat()
         {
             // 检查是否满足撤退条件
-            List<byte> retreatCityIdList = WarManager.AIGetRetreatCityList(WarManager.Instance.aiKingId);
+            List<byte> retreatCityIdList = WarManager.AIGetRetreatCityList();
             if (retreatCityIdList == null || retreatCityIdList.Count == 0)
             {
                 return false;
@@ -227,37 +98,44 @@ namespace War
                 return false;
 
             // 检查士兵数量是否少于 300或者低血量且士兵数量少于 500
-            return general.generalSoldier < 300 || (general.GetCurPhysical() < 15 && general.generalSoldier < 500);
+            return general.soldiers < 300 || (general.GetHP() < 15 && general.soldiers < 500);
         }
 
         /// <summary>
         /// 单个AI单位的撤退
         /// </summary>
-        public void SingletonRetreat()
+        public static void SingletonRetreat(short generalId)
         {
-            UnitObj t = WarManager.GetUnitByPos(_aiUnit.arrayPos);
-            WarManager.RetreatGeneralToCity(t, GetCanRetreatCityId(), WarManager.Instance.aiKingId);
+            UnitObj t = WarManager.Instance.GetUnitByID(generalId);
+            byte cityId = GetCanRetreatCityId();
+            WarManager.RetreatGeneralToCity(t.genID, cityId, false, t.unitState == UnitState.Captive);
+            if (t.IsCommander)
+            {
+                CountryListCache.GetCountryByKingId(WarManager.Instance.aiKingId).AIRetreatAddResourcesToCity(
+                    WarManager.Instance.departureCityId, WarManager.Instance.aiGold, WarManager.Instance.aiFood);
+            }
+            
             t.Remove(UnitState.Retreat);
+            
             if (WarManager.Instance.aiUnits.Count == 0)
             {
                 WarManager.Instance.AIWithdraw();
             }
         }
-
+        
         /// <summary>
         /// 主将能撤退时全军撤退
         /// </summary>
-        public static void AIFollowRetreat()
+        public static void AIAllRetreat()
         {
-            List<UnitObj> sortUnits= WarManager.Instance.aiUnits.OrderByDescending(unit => GeneralListCache.GetGeneral(unit.genID).AllStatus()).ToList();
+            List<UnitObj> sortUnits= WarManager.Instance.aiUnits.OrderByDescending(
+                unit => GeneralListCache.GetGeneral(unit.genID).AllStatus()).ToList();
             foreach (var unit in sortUnits)
             {
-                if (unit.unitState == UnitState.Captive) continue;
-                AIWar aiWar = new AIWar(unit.data);
-                aiWar.SingletonRetreat();
+                SingletonRetreat(unit.genID);
             }
         }
-
+        
         /// <summary>
         /// 获取可以撤退的城市 ID
         /// </summary>
@@ -265,7 +143,7 @@ namespace War
         static byte GetCanRetreatCityId()
         {
             // 获取可以撤退的城市列表
-            List<byte> retreatCityIdList = WarManager.AIGetRetreatCityList(WarManager.Instance.aiKingId);
+            List<byte> retreatCityIdList = WarManager.AIGetRetreatCityList();
 
             // 如果没有可撤退的城市，返回 0
             if (retreatCityIdList == null || retreatCityIdList.Count == 0)
@@ -275,7 +153,7 @@ namespace War
 
             // 返回将领数量最少的城市 ID
             return retreatCityIdList
-                .OrderBy(cityId => CityListCache.GetCityByCityId(cityId).GetCityOfficerNum())
+                .OrderByDescending(cityId => CityListCache.GetCityByCityId(cityId).GetCityOfficerNum())
                 .FirstOrDefault(); // 如果列表为空，则返回默认值 0
         }
 
@@ -403,9 +281,9 @@ namespace War
                 // 检查特殊计谋条件
                 bool isValid = i switch
                 {
-                    0 or 3 or 4 or 6 or 7 or 9 or 11 or 12 or 13 or 14 => hmGeneral.generalSoldier > 30,
-                    1 => hmGeneral.GetCurPhysical() > 1,
-                    2 => hmGeneral.generalSoldier > 30 && hmUnitObj.unitState != UnitState.Trapped && hmUnitObj.unitState != UnitState.Captive,
+                    0 or 3 or 4 or 6 or 7 or 9 or 11 or 12 or 13 or 14 => hmGeneral.soldiers > 30,
+                    1 => hmGeneral.GetHP() > 1,
+                    2 => hmGeneral.soldiers > 30 && hmUnitObj.unitState != UnitState.Trapped && hmUnitObj.unitState != UnitState.Captive,
                     5 or 8 => WarManager.Instance.hmFood > 0,
                     10 => hmUnitObj.trappedDay < 2,
                     _ => false
@@ -435,7 +313,7 @@ namespace War
                 byte planValue = planValues.GetValueOrDefault(id, (byte)0);
 
                 // 特殊逻辑处理
-                if (id == 2 && hmGeneral.generalSoldier > 1400)
+                if (id == 2 && hmGeneral.soldiers > 1400)
                 {
                     planValue = 4;
                 }
@@ -496,9 +374,9 @@ namespace War
                 // 根据不同的计谋条件筛选
                 bool isValid = i switch
                 {
-                    0 or 3 or 4 or 6 or 7 or 9 or 11 or 12 or 13 or 14 => hmGeneral.generalSoldier > 30,
-                    1 => hmGeneral.GetCurPhysical() > 1,
-                    2 => hmGeneral.generalSoldier > 30 && hmUnitObj.unitState != UnitState.Trapped && hmUnitObj.unitState != UnitState.Captive,
+                    0 or 3 or 4 or 6 or 7 or 9 or 11 or 12 or 13 or 14 => hmGeneral.soldiers > 30,
+                    1 => hmGeneral.GetHP() > 1,
+                    2 => hmGeneral.soldiers > 30 && hmUnitObj.unitState != UnitState.Trapped && hmUnitObj.unitState != UnitState.Captive,
                     5 or 8 => WarManager.Instance.hmFood > 0,
                     10 => hmUnitObj.trappedDay < 2,
                     _ => false
@@ -522,7 +400,7 @@ namespace War
                 byte planValue = planValues.ContainsKey(planId) ? planValues[planId] : (byte)0;
 
                 // 特殊逻辑处理（例如 计谋2 的士兵限制）
-                if (planId == 2 && hmGeneral.generalSoldier > 1400)
+                if (planId == 2 && hmGeneral.soldiers > 1400)
                 {
                     planValue = 4;
                 }
@@ -579,9 +457,9 @@ namespace War
                 // 根据不同的计谋条件筛选
                 bool isValid = i switch
                 {
-                    0 or 3 or 4 or 6 or 7 or 9 or 11 or 12 or 13 or 14 => aiGeneral.generalSoldier > 30,
-                    1 => aiGeneral.GetCurPhysical() > 1,
-                    2 => aiGeneral.generalSoldier > 30 && _aiUnit.unitState != UnitState.Trapped && _aiUnit.unitState != UnitState.Captive,
+                    0 or 3 or 4 or 6 or 7 or 9 or 11 or 12 or 13 or 14 => aiGeneral.soldiers > 30,
+                    1 => aiGeneral.GetHP() > 1,
+                    2 => aiGeneral.soldiers > 30 && _aiUnit.unitState != UnitState.Trapped && _aiUnit.unitState != UnitState.Captive,
                     5 or 8 => WarManager.Instance.aiFood > 0,
                     10 => _aiUnit.trappedDay < 2,
                     _ => false
@@ -675,8 +553,8 @@ namespace War
             General pyGen = GeneralListCache.GetGeneral(hmGenId);
             int a = aiGen.GetWarValue();
             int p = pyGen.GetWarValue();
-            int sa = 1 + aiGen.generalSoldier / 100;
-            int sp = 1 + pyGen.generalSoldier / 100;
+            int sa = 1 + aiGen.soldiers / 100;
+            int sp = 1 + pyGen.soldiers / 100;
             int score = (a * sa * sp) / (p * sp);
             return score;
         }
@@ -690,11 +568,11 @@ namespace War
         {
             General aiGeneral = _aiGeneral;
             General pyGeneral = GeneralListCache.GetGeneral(hmGenId);
-            int a = aiGeneral.lead * 3 + aiGeneral.force + aiGeneral.IQ + aiGeneral.level * 20;
-            int p = pyGeneral.lead * 3 + pyGeneral.force + pyGeneral.IQ + pyGeneral.level * 20;
-            int sa = 1 + aiGeneral.generalSoldier / 100;
-            int sp = 1 + pyGeneral.generalSoldier / 100;
-            byte iq = pyGeneral.IQ;
+            int a = aiGeneral.lead * 3 + aiGeneral.force + aiGeneral.wisdom + aiGeneral.level * 20;
+            int p = pyGeneral.lead * 3 + pyGeneral.force + pyGeneral.wisdom + pyGeneral.level * 20;
+            int sa = 1 + aiGeneral.soldiers / 100;
+            int sp = 1 + pyGeneral.soldiers / 100;
+            byte iq = pyGeneral.wisdom;
             
             int score = a * sa * sp / p * sp;
             if (iq >= 100)
@@ -862,7 +740,7 @@ namespace War
                 Debug.Log("路径已找到:");
                 foreach (var destination in movePath)
                 {
-                    yield return MoveUnit(unitObj, (destination.Item1, destination.Item2));
+                    MoveUnit(unitObj, (destination.Item1, destination.Item2));
                     Debug.Log($"点: {destination.Item1.x}, {destination.Item1.y}, 消耗移动力: {destination.Item2}，剩余移动力: {unitObj.moveBonus}");
                     yield return new WaitForSeconds(0.2f);
                 }
@@ -880,7 +758,7 @@ namespace War
 
         
 
-        IEnumerator MoveUnit(UnitObj unitObj, (Vector2Int, byte) destination)
+        void MoveUnit(UnitObj unitObj, (Vector2Int, byte) destination)
         {
             Vector2Int tarPos = destination.Item1;
             unitObj.SubMoveBonus(destination.Item2);
@@ -896,15 +774,17 @@ namespace War
             {
                 unitObj.SetUnitState(UnitState.Trapped);
                 unitObj.SetTrappedDay(9);
-                yield return UIWar.Instance.uiPlanResult.ShowPlanResult(15, "中计谋奇门遁甲");
-                yield break;
+                UIWar.Instance.uiPlanResult.ShowPlanResultWithConfirm(15, "中计谋奇门遁甲", () => { });
+                return;
             }
 
             if (WarManager.Instance.isHmDef && unitObj.arrayPos == AITargetPosition())
             {  
                 Debug.Log("AI占领目标城池位置");
-                yield return UIWar.Instance.uiTips.ShowNoticeTips("敌军占领了城池");
-                UIWar.Instance.uiRetreatPanel.MustRetreat(WarManager.Instance.WarOver);
+                UIWar.Instance.uiTips.ShowNoticeTipsWithConfirm("敌军占领了城池", () =>
+                {
+                    UIWar.Instance.uiRetreatPanel.MustRetreat();
+                });
             }
         }
     }

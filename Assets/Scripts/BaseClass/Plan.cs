@@ -204,7 +204,7 @@ namespace BaseClass
                     // 处理围杀士兵损失
                     nearbyGeneral.SubSoldier(surroundLoss);
                     totalSurroundLoss = Mathf.Min(totalSurroundLoss + surroundLoss, 
-                        totalSurroundLoss + nearbyGeneral.generalSoldier);
+                        totalSurroundLoss + nearbyGeneral.soldiers);
                 }
             }
 
@@ -213,7 +213,7 @@ namespace BaseClass
 
         protected void AddPlanExp(General doGeneral, int exp)
         {
-            doGeneral.Addexperience(exp / 3);
+            doGeneral.AddExperience(exp / 3);
             doGeneral.AddIqExp((byte)(exp / 100));
         }
     }
@@ -230,8 +230,8 @@ namespace BaseClass
         public override byte Rate(General doGen, General beGen)
         {
             // 基本属性
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
             byte lead2 = beGen.lead;
 
             // 初始成功率计算
@@ -268,8 +268,8 @@ namespace BaseClass
         public override string Result(General doGen, General beGen, bool isPlayer)
         {
             // 提取基础属性
-            byte iq1 = doGen.IQ; // 攻击方智力
-            byte iq2 = beGen.IQ; // 防御方智力
+            byte iq1 = doGen.wisdom; // 攻击方智力
+            byte iq2 = beGen.wisdom; // 防御方智力
 
             // 初始化伤害值
             int loss = 250; // 基础伤害
@@ -296,7 +296,7 @@ namespace BaseClass
             }
 
             // 确保伤害不会超过现有士兵数量
-            loss = Mathf.Min(loss, beGen.generalSoldier);
+            loss = Mathf.Min(loss, beGen.soldiers);
 
             // 减少防御方士兵数量
             beGen.SubSoldier(loss);
@@ -320,8 +320,8 @@ namespace BaseClass
         public override byte Rate(General doGen, General beGen)
         {
             // 基本属性
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
             byte lead2 = beGen.lead;
 
             // 初始成功率计算
@@ -351,9 +351,9 @@ namespace BaseClass
         {
             int hurt = Random.Range(10,21); // 计算体力减少的值
             ResultEnhance(doGen, ref hurt);// 军师增强
-            if (beGen.GetCurPhysical() - 1 < hurt)
-                hurt = beGen.GetCurPhysical() - 1; // 防止体力减少到负值
-            beGen.SubHp((byte)hurt); // 减少体力
+            if (beGen.GetHP() - 1 < hurt)
+                hurt = beGen.GetHP() - 1; // 防止体力减少到负值
+            beGen.SubHP((byte)hurt); // 减少体力
             // 添加计谋经验
             AddPlanExp(doGen, hurt * 15);
             return $"{beGen.generalName}中了{doGen.generalName}之计！受到：{hurt}伤害";
@@ -371,8 +371,8 @@ namespace BaseClass
         public override byte Rate(General doGen, General beGen)
         {
             // 基本属性
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
             byte force2 = beGen.force;
             int r1 = (int)(iq1 * 0.3f - iq2 * 0.2f + 70- force2 * 0.08f);
             int r2 = (int)((iq1 * iq1) * (100 - iq2 * 0.9f) * 100 / (iq1 * iq1 + iq2 * iq2) / 45 - (100f - iq1) * 0.1f - force2 * 0.08f);
@@ -442,8 +442,8 @@ namespace BaseClass
         public override string Result(General doGen, General beGen, bool isPlayer)
         {
             // 提取基础属性
-            byte iq1 = doGen.IQ; // 攻击方智力
-            byte iq2 = beGen.IQ; // 防御方智力
+            byte iq1 = doGen.wisdom; // 攻击方智力
+            byte iq2 = beGen.wisdom; // 防御方智力
 
             // 初始化伤害值
             int loss = 250; // 基础伤害
@@ -463,7 +463,7 @@ namespace BaseClass
             ResultEnhance(doGen, ref loss);
 
             // 确保伤害不会超过现有士兵数量
-            loss = Mathf.Min(loss, beGen.generalSoldier);
+            loss = Mathf.Min(loss, beGen.soldiers);
 
             // 减少防御方士兵数量
             beGen.SubSoldier(loss);
@@ -486,8 +486,8 @@ namespace BaseClass
         protected override byte[] BeTerrain => new byte[] {9};
         public override byte Rate(General doGen, General beGen)
         {
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
             byte lead2 = beGen.lead;
             byte type = beGen.army[2];
             int r1 = (int)(iq1 * 0.3f - iq2 * 0.2f + 70 - lead2 * 0.05f);
@@ -545,8 +545,8 @@ namespace BaseClass
 
         public override byte Rate(General doGen, General beGen)
         {
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
             byte lead2 = beGen.lead;
             int r1 = (int)(iq1 * 0.3f - iq2 * 0.2f + 70 - lead2 * 0.05f);
             int r2 = (int)((iq1 * iq1) * (100 - iq2 * 0.9f) * 100 / (iq1 * iq1 + iq2 * iq2) / 60 - (100 - iq1) * 0.1f - lead2 * 0.05f);
@@ -626,9 +626,9 @@ namespace BaseClass
 
         public override byte Rate(General doGen, General beGen)
         {
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
-            byte moral2 = beGen.moral;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
+            byte moral2 = beGen.charm;
             int r1 = (int)(iq1 * 0.3f - iq2 * 0.2f + 70 - moral2 * 0.05f);
             int r2 = (int)((iq1 * iq1) * (100 - iq2 * 0.9f) * 100 / (iq1 * iq1 + iq2 * iq2) / 60 - (100 - iq1) * 0.1f - moral2 * 0.05f);
             if (iq1 < iq2)
@@ -656,8 +656,8 @@ namespace BaseClass
 
         public override string Result(General doGen, General beGen, bool isPlayer)
         {
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
             int loss = 450;
             int surroundLoss = 0;
             int totalLoss = 0;
@@ -675,7 +675,7 @@ namespace BaseClass
             ResultEnhance(doGen, ref loss);
             
             surroundLoss = loss;
-            loss = Mathf.Min(loss, beGen.generalSoldier);
+            loss = Mathf.Min(loss, beGen.soldiers);
             beGen.SubSoldier(loss);
             totalLoss += loss;
             totalLoss += CalculateSurroundingLoss(beGen, surroundLoss, isPlayer);
@@ -691,16 +691,16 @@ namespace BaseClass
     {
         public override byte PlanID => 7;
         public override string Name => "伪击转杀";
-        protected override byte Cost => 10;
+        protected override byte Cost => 8;
         protected override byte Distance => 1;
         protected override byte[] BeTerrain => new byte[] { 8 };
         public override byte Rate(General doGen, General beGen)
         {
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
-            byte moral2 = beGen.moral;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
+            byte moral2 = beGen.charm;
             int r1, r2, rate;
-            if (beGen.generalSoldier > 1800 + Random.Range(0,300))
+            if (beGen.soldiers > 1800 + Random.Range(0,300))
             {
                 r1 = (int)(iq1 * 0.3f - iq2 * 0.2f + 70 - moral2 * 0.05f);
                 r2 = (int)((iq1 * iq1) * (100 - iq2 * 0.9f) * 100 / (iq1 * iq1 + iq2 * iq2) / 60 - (100 - iq1) * 0.1f - moral2 * 0.05f);
@@ -746,8 +746,8 @@ namespace BaseClass
 
         public override byte Rate(General doGen, General beGen)
         {
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
             byte lead2 = beGen.lead;
             int r1 = (int)(iq1 * 0.3f - iq2 * 0.2f + 70 - lead2 * 0.05f);
             int r2 = (int)((iq1 * iq1) * (100 - iq2 * 0.9f) * 100 / (iq1 * iq1 + iq2 * iq2) / 70 - (100 - iq1) * 0.1f - lead2 * 0.05f);
@@ -813,8 +813,8 @@ namespace BaseClass
 
         public override byte Rate(General doGen, General beGen)
         {
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
             byte lead1 = doGen.lead;
             byte lead2 = beGen.lead;
             byte type = beGen.army[1];
@@ -844,8 +844,8 @@ namespace BaseClass
 
         public override string Result(General doGen, General beGen, bool isPlayer)
         {
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
             int loss = 350;
             int hurt = 0;
             // 根据智力差异调整伤害
@@ -859,13 +859,13 @@ namespace BaseClass
                 loss += Random.Range(iqDifference * 3 - 2, 0); // 防御方智力高，降低伤害
             }
             ResultEnhance(doGen, ref loss);
-            loss = Mathf.Min(loss, beGen.generalSoldier);
+            loss = Mathf.Min(loss, beGen.soldiers);
             beGen.SubSoldier(loss);
             hurt = Random.Range(10,21);
             ResultEnhance(doGen, ref hurt);
-            if (beGen.GetCurPhysical() - 1 < hurt)
-                hurt = beGen.GetCurPhysical() - 1;
-            beGen.SubHp((byte)hurt);
+            if (beGen.GetHP() - 1 < hurt)
+                hurt = beGen.GetHP() - 1;
+            beGen.SubHP((byte)hurt);
             
             // 添加计谋经验
             AddPlanExp(doGen, loss + hurt * 15);
@@ -885,8 +885,8 @@ namespace BaseClass
 
         public override byte Rate(General doGen, General beGen)
         {
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
             byte lead1 = doGen.lead;
             byte lead2 = beGen.lead;
             byte type = beGen.army[2];
@@ -975,8 +975,8 @@ namespace BaseClass
 
         public override byte Rate(General doGen, General beGen)
         {
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
             byte lead1 = doGen.lead;
             byte lead2 = beGen.lead;
             int r1 = (int)(iq1 * 0.3f - iq2 * 0.2f + 70 - lead2 * 0.05f + lead1 * 0.08f);
@@ -1006,8 +1006,8 @@ namespace BaseClass
 
         public override string Result(General doGen, General beGen, bool isPlayer)
         {
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
 
             // 初始伤害值
             int loss = 600;
@@ -1027,7 +1027,7 @@ namespace BaseClass
             ResultEnhance(doGen, ref loss);
 
             // 确保损失不会超过现有士兵数
-            loss = Mathf.Min(loss, beGen.generalSoldier);
+            loss = Mathf.Min(loss, beGen.soldiers);
 
             // 更新士兵数
             beGen.SubSoldier(loss);
@@ -1062,8 +1062,8 @@ namespace BaseClass
         public byte FriendMinimum => 1;
         public override byte Rate(General doGen, General beGen)
         {
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
             byte lead1 = doGen.lead;
             byte lead2 = beGen.lead;
             int r1 = (int)(iq1 * 0.3f - iq2 * 0.2f + 70 - lead2 * 0.05f + lead1 * 0.08f);
@@ -1109,8 +1109,8 @@ namespace BaseClass
         protected override byte[] BeTerrain => new byte[] { 1,2,3,4,5,6,7,9,10,11,12 };
         public override byte Rate(General doGen, General beGen)
         {
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
             byte lead1 = doGen.lead;
             byte lead2 = beGen.lead;
             int r1 = (int)(iq1 * 0.3f - iq2 * 0.2f + 70 - lead2 * 0.05f + lead1 * 0.08f);
@@ -1133,8 +1133,8 @@ namespace BaseClass
 
         public override string Result(General doGen, General beGen, bool isPlayer)
         {
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
             int loss = 400;
             // 根据智力差异调整伤害
             int iqDifference = iq1 - iq2;
@@ -1147,7 +1147,7 @@ namespace BaseClass
                 loss += Random.Range(iqDifference * 3 - 2, 0); // 防御方智力高
             }
             ResultEnhance(doGen, ref loss);
-            loss = Mathf.Min(loss, beGen.generalSoldier);
+            loss = Mathf.Min(loss, beGen.soldiers);
             beGen.SubSoldier(loss);
             // 添加计谋经验
             AddPlanExp(doGen, loss);
@@ -1176,8 +1176,8 @@ namespace BaseClass
 
         public override string Result(General doGen, General beGen, bool isPlayer)
         {
-            byte iq1 = doGen.IQ;
-            byte iq2 = beGen.IQ;
+            byte iq1 = doGen.wisdom;
+            byte iq2 = beGen.wisdom;
             int loss = 550;
 
             // 根据智力差异调整伤害
@@ -1204,7 +1204,7 @@ namespace BaseClass
             int surroundLoss = loss;
             
             // 减少被攻击将领的士兵数
-            loss = Mathf.Min(loss, beGen.generalSoldier);
+            loss = Mathf.Min(loss, beGen.soldiers);
             beGen.SubSoldier(loss);
             
             int totalLoss = loss;
@@ -1233,7 +1233,7 @@ namespace BaseClass
 
                 // 计算损失
                 nearbyGen.SubSoldier(surroundLoss);
-                totalLoss = Mathf.Min(totalLoss + surroundLoss, totalLoss + nearbyGen.generalSoldier);
+                totalLoss = Mathf.Min(totalLoss + surroundLoss, totalLoss + nearbyGen.soldiers);
             }
             // 添加计谋经验
             AddPlanExp(doGen, totalLoss);

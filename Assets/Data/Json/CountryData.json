@@ -1,0 +1,33 @@
+[
+  {
+    "countryId": 1,
+    "countryKingId": 61,
+    "countryColor": "#214AE7",
+    "canBeChoose": true,
+    "inheritors": [
+      110,
+      109,
+      65
+    ]
+  },
+  {
+    "countryId": 2,
+    "countryKingId": 4,
+    "countryColor": "#FFFF00",
+    "canBeChoose": true,
+    "inheritors": [
+      178,
+      40
+    ]
+  },
+  {
+    "countryId": 3,
+    "countryKingId": 69,
+    "countryColor": "#FF00FF",
+    "canBeChoose": true,
+    "inheritors": [
+      114,
+      116
+    ]
+  }
+]

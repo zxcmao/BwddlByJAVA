@@ -28,7 +28,7 @@ namespace UIClass
             {
                 OnMusicSliderValueChanged(0.5f);
                 SoundManager.Instance.SetBGMVolume(0.5f);
-                SoundManager.Instance.PlayBGM("2");
+                SoundManager.Instance.PlayBGM("Assets/Audio/Bgm/2.ogg");
             }
             else
             {

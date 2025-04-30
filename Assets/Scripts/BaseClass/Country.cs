@@ -1,24 +1,21 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using DataClass;
-using Newtonsoft.Json;
 using UnityEngine;
 
 namespace BaseClass
 {
     [System.Serializable]
     public class Country
-    {    // 定义公开的字段
-        public byte countryId; // 势力ID
-        public short countryKingId;// 君主ID
-        public string countryColor;// 势力颜色
-        public short power; // 力量值
-        public bool canBeChoose;// 是否可以被选择
-        [JsonProperty("inheritGeneralIds[]")] public short[] inheritGeneralIds; // 继承武将ID数组
-
-        // 用于存储城市的列表
-        public List<byte> cityIDs = new List<byte>();//势力所有城市ID列表
-        public List<Alliance> allianceList = new List<Alliance>();// 盟友列表
+    {    
+        public byte countryId;                      // 势力ID
+        public short countryKingId;                 // 君主ID
+        public string countryColor;                 // 势力颜色
+        public bool canBeChoose;                    // 是否可以被选择
+        public short[] inheritors;                  // 继承武将ID数组
+        
+        public List<byte> cityIDs = new();          //势力所有城市ID列表
+        public List<Alliance> allianceList = new(); // 盟友列表
 
         public string KingName()
         {
@@ -30,15 +27,7 @@ namespace BaseClass
             Debug.LogError("找不到君主对象");
             return null;
         }
-
-        // 添加继承武将ID的方法
-        public void addInheritGeneralId(short generalId)
-        {
-            short[] tempInheritGeneralIds = new short[this.inheritGeneralIds.Length + 1];
-            System.Array.Copy(this.inheritGeneralIds, 0, tempInheritGeneralIds, 0, this.inheritGeneralIds.Length);
-            tempInheritGeneralIds[tempInheritGeneralIds.Length - 1] = generalId;
-            inheritGeneralIds = tempInheritGeneralIds;
-        }
+        
 
         
         /// <summary>
@@ -79,13 +68,13 @@ namespace BaseClass
         int InheritScore(short generalId)
         {
             General general = GeneralListCache.GetGeneral(generalId);
-            int score = general.IQ + general.lead + general.moral;
+            int score = general.wisdom + general.lead + general.charm;
 
             // IQ 条件
-            if (general.IQ >= 95) score += 100;
-            else if (general.IQ >= 90) score += 70;
-            else if (general.IQ >= 80) score += 40;
-            else if (general.IQ >= 70) score += 20;
+            if (general.wisdom >= 95) score += 100;
+            else if (general.wisdom >= 90) score += 70;
+            else if (general.wisdom >= 80) score += 40;
+            else if (general.wisdom >= 70) score += 20;
 
             // lead 条件
             if (general.lead >= 95) score += 50;
@@ -94,10 +83,10 @@ namespace BaseClass
             else if (general.lead >= 70) score += 10;
 
             // Moral 条件
-            if (general.moral >= 95) score += 50;
-            else if (general.moral >= 90) score += 40;
-            else if (general.moral >= 80) score += 20;
-            else if (general.moral >= 70) score += 10;
+            if (general.charm >= 95) score += 50;
+            else if (general.charm >= 90) score += 40;
+            else if (general.charm >= 80) score += 20;
+            else if (general.charm >= 70) score += 10;
 
             return score;
         }
@@ -110,7 +99,7 @@ namespace BaseClass
         public short GetInheritGeneralId()
         {
             // 首先检查 inheritGeneralIds 数组
-            foreach (short id in inheritGeneralIds)
+            foreach (short id in inheritors)
             {
                 General general = GeneralListCache.GetGeneral(id);
                 if (general != null && FindCityOfGeneral(id) != 0)
@@ -122,9 +111,8 @@ namespace BaseClass
             // 初始化最大值
             int maxValue = 0;
             short generalId = 0;
-
-            // 遍历国家下辖的城市集合
-            foreach (byte cityId in this.cityIDs)  // 假设 this.citys 是 List<City>
+            
+            foreach (byte cityId in cityIDs) // 遍历国家下辖的城市集合
             {
                 // 根据城市ID获取具体的City对象
                 City city = CityListCache.GetCityByCityId(cityId); // 你需要实现或使用的查找方法
@@ -153,7 +141,7 @@ namespace BaseClass
         {
             byte cityId = cityIDs
                     .Select(CityListCache.GetCityByCityId) // 获取 City 对象
-                    .FirstOrDefault(city => city != null && city.prefectId == countryKingId)?.cityId ?? (byte)0;
+                    .FirstOrDefault(city => city != null && city.prefectID == countryKingId)?.cityID ?? 0;
             
             // 如果没有找到，打印调试信息
             if (cityId == 0)
@@ -194,7 +182,7 @@ namespace BaseClass
         public short Inherit()
         {
             // 获取继承武将ID
-            short inheritGeneralId = ((short)GetInheritGeneralId());
+            short inheritGeneralId = GetInheritGeneralId();
 
             // 如果找到了符合条件的武将ID
             if (inheritGeneralId != 0)
@@ -217,7 +205,7 @@ namespace BaseClass
             // 更新每个城市的归属
             foreach (var curCity in cityIDs.Select(CityListCache.GetCityByCityId))
             {
-                curCity.cityBelongKing = inheritGeneralId;
+                curCity.ownerID = inheritGeneralId;
             }
 
             // 获取继承武将所在的城市ID
@@ -229,7 +217,7 @@ namespace BaseClass
 
             // 获取城市对象并任命太守
             City liveCity = CityListCache.GetCityByCityId(cityId);
-            liveCity.AppointmentPrefect(inheritGeneralId);
+            liveCity.AppointPrefect(inheritGeneralId);
 
             // 更新武将的忠诚度
             General general = GeneralListCache.GetGeneral(inheritGeneralId);
@@ -258,7 +246,7 @@ namespace BaseClass
             return (byte)cityIDs.Count;
         }
 
-        public bool IsEndangered() => cityIDs.Count == 1;
+        public bool IsEndangered() => cityIDs.Count <= 1;
         public bool IsDestroyed() => cityIDs.Count <= 0;
         
         public bool AddCity(byte cityId)
@@ -278,7 +266,7 @@ namespace BaseClass
             City city = CityListCache.GetCityByCityId(cityId);
 
             // 将城市的所属国王ID设置为当前国家的国王ID
-            city.cityBelongKing = countryKingId;
+            city.ownerID = countryKingId;
 
             // 将城市ID添加到列表中
             cityIDs.Add(cityId);
@@ -295,8 +283,8 @@ namespace BaseClass
             }
             if (!cityIDs.Contains(cityId)) return false;
             City city = CityListCache.GetCityByCityId(cityId);  // 获取城市对象
-            city.prefectId = 0;  // 清除城市的太守ID
-            city.cityBelongKing = 0;  // 清除城市的归属国家
+            city.prefectID = 0;  // 清除城市的太守ID
+            city.ownerID = 0;  // 清除城市的归属国家
             cityIDs.Remove(cityId);
             return true;
         }
@@ -341,7 +329,7 @@ namespace BaseClass
             City city = CityListCache.GetCityByCityId(cityId);
 
             // 获取归属君主ID
-            short belongKing = city.cityBelongKing;
+            short belongKing = city.ownerID;
 
             // 如果归属君主ID为0，则不属于任何势力
             if (belongKing == 0)
@@ -506,7 +494,7 @@ namespace BaseClass
         }
     
         // 获取没有联盟关系的势力数量
-        public byte getNoAllianceCountrySize()
+        public byte GetNoAllianceCountrySize()
         {
             // 调用方法获取没有联盟关系的势力ID数组
             byte[] noAllianceCountryIds = GetNoCountryIdAllianceCountryIdArray();
@@ -529,7 +517,55 @@ namespace BaseClass
             }
         }
 
-        
+        /// <summary>
+        /// 主将撤退时将钱粮辎重分配到城池
+        /// </summary>
+        /// <param name="cityId"></param>
+        /// <param name="money"></param>
+        /// <param name="food"></param>
+        public void AIRetreatAddResourcesToCity(byte cityId, short money, short food)
+        {
+            if (cityId == 0 || !cityIDs.Contains(cityId))
+            {
+                Debug.LogError("无效的城市ID，或城市ID不在势力中");
+                return;
+            }
+
+            short remainingMoney = money;
+            short remainingFood = food;
+
+            // 尝试将钱粮辎重添加到首选城池
+            City city = CityListCache.GetCityByCityId(cityId);
+            city.AddGold(remainingMoney);
+            city.AddFood(remainingFood);
+            remainingMoney -= (short)(city.GetMoney() - (city.GetMoney() - money));
+            remainingFood -= (short)(city.GetFood() - (city.GetFood() - food));
+
+            // 分配剩余的钱粮辎重到势力内其他城池
+            foreach (var id in cityIDs)
+            {
+                if (id != cityId)
+                {
+                    City otherCity = CityListCache.GetCityByCityId(id);
+                    short addMoney = (short)Mathf.Min(remainingMoney, 30000 - otherCity.GetMoney());
+                    short addFood = (short)Mathf.Min(remainingFood, 30000 - otherCity.GetFood());
+
+                    otherCity.AddGold(addMoney);
+                    otherCity.AddFood(addFood);
+                    remainingMoney -= addMoney;
+                    remainingFood -= addFood;
+
+                    if (remainingMoney <= 0 && remainingFood <= 0)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            // 如果还有剩余的钱粮，则输出日志
+            if (remainingMoney > 0 || remainingFood > 0)
+                Debug.Log($"{KingName()}撤退溢出钱粮: {remainingMoney}, {remainingFood}");
+        }
         
         /// <summary>
         /// 将武将们从指定城池撤退到其他城池
@@ -538,9 +574,9 @@ namespace BaseClass
         /// <param name="curCityId"></param>
         /// <param name="food"></param>
         /// <param name="money"></param>
-        /// <param name="chiefGeneralCaptured"></param>
+        /// <param name="commanderCaptured"></param>
         /// <returns></returns>
-        public bool AIRetreatGeneralToCity(short[] generalIdArray, byte curCityId, int food, int money, bool chiefGeneralCaptured)
+        public bool AIRetreatGeneralToCity(short[] generalIdArray, byte curCityId, int food, int money, bool commanderCaptured)
         {
             bool retreat = false;
             City curCity = CityListCache.GetCityByCityId(curCityId);
@@ -566,7 +602,7 @@ namespace BaseClass
                     }
                 }
 
-                return retreat;
+                return false;
             }
 
             int index = 0;
@@ -578,7 +614,7 @@ namespace BaseClass
                 {
                     foreach (var t in cityIDs)
                     {
-                        byte cityId = (byte)t;
+                        byte cityId = t;
                         if (cityId != curCityId)
                         {
                             City city = CityListCache.GetCityByCityId(cityId);
@@ -586,7 +622,7 @@ namespace BaseClass
                             {
                                 city.AddOfficeGeneralId(generalId);
                                 index++;
-                                if (i == 0 && !chiefGeneralCaptured)
+                                if (i == 0 && !commanderCaptured)
                                 {
                                     city.AddFood((short)food);
                                     city.AddGold((short)money);
@@ -615,7 +651,7 @@ namespace BaseClass
                 }
             }
 
-            return !chiefGeneralCaptured && retreat;
+            return !commanderCaptured && retreat;
         }
     }
 }

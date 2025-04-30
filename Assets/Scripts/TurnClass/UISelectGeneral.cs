@@ -1,9 +1,8 @@
-using System.Collections.Generic;
+using System;
 using System.Linq;
 using BaseClass;
 using DataClass;
 using TMPro;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -13,7 +12,6 @@ namespace TurnClass
 {
     public class UISelectGeneral : MonoBehaviour
     {
-
         [SerializeField] GameObject generalTogglePrefab;  // 预制件按钮
         [SerializeField] Transform generalRoom;  // 按钮生成的父物体 (GeneralListPanel)
         [SerializeField] Button confirmButton;
@@ -36,10 +34,24 @@ namespace TurnClass
 
         void Start()
         {
-            InitializeSelection();
+            UnityEngine.AddressableAssets.Addressables.LoadAssetAsync<GameObject>("Assets/Prefabs/GeneralToggle.prefab")
+                    .Completed += handle =>
+                {
+                    generalTogglePrefab = handle.Result;
+                    InitializeSelection();
+                };
+            
+            confirmButton.onClick.RemoveAllListeners();
             confirmButton.gameObject.SetActive(false);
+            
+            cancelButton.gameObject.SetActive(true);
+            cancelButton.onClick.RemoveAllListeners();
             cancelButton.onClick.AddListener(OnCancelButtonClicked);
+        }
 
+        private void OnDisable()
+        {
+            UnityEngine.AddressableAssets.Addressables.Release(generalTogglePrefab);
         }
 
         // 初始化选择界面
@@ -53,17 +65,23 @@ namespace TurnClass
                     if (!secondConfirm) // 第一次选将用于移动 
                     {
                         _singleSelect = false;
-                        optionalGeneralIds.Clear();
-                        optionalGeneralIds = CityListCache.GetCityByCityId(doCityId).GetOfficerIds().ToList();
+                        SetGeneralOption(CityListCache.GetCityByCityId(doCityId).GetOfficerIds());
                         CreateGeneralSelectionToggles(_singleSelect);
                     }
-                    else // 第二次选将用于任命太守
+                    else if (targetGeneralIds.Contains(CityListCache.GetCityByCityId(doCityId).prefectID))// 第二次选将用于任命太守
                     {
                         _singleSelect = true;
                         info.text = "任命新太守";
                         var cityGeneralIds = CityListCache.GetCityByCityId(doCityId).GetOfficerIds().ToList();
-                        optionalGeneralIds = cityGeneralIds.Except(targetGeneralIds).ToList();
+                        SetGeneralOption(cityGeneralIds.Except(targetGeneralIds));
                         CreateGeneralSelectionToggles(_singleSelect); // 选择其他人任太守
+                    }
+                    else
+                    {
+                        _singleSelect = true;
+                        info.text = "任命主将";
+                        SetGeneralOption(targetGeneralIds);
+                        CreateGeneralSelectionToggles(_singleSelect); // 选择其中一人任主将
                     }
                     break;
                 case TaskType.SelfBuild:
@@ -114,6 +132,7 @@ namespace TurnClass
 
                 // 实例化新 toggle
                 GameObject toggleObj = Instantiate(generalTogglePrefab, generalRoom.transform);
+                toggleObj.name = general.generalName;
                 Toggle toggle = toggleObj.GetComponent<Toggle>();
 
                 // 如果是单选模式，则将 Toggle 添加到 ToggleGroup
@@ -122,20 +141,20 @@ namespace TurnClass
                     ToggleGroup toggleGroup = generalRoom.GetComponent<ToggleGroup>();
                     toggle.group = toggleGroup; // 将 Toggle 添加到 Toggle Group
                 }
-
+                toggleObj.GetComponentInChildren<TextMeshProUGUI>().text = general.generalName;
                 // 缓存 TextMeshPro 组件
-                TextMeshProUGUI[] textMeshes = toggleObj.GetComponentsInChildren<TextMeshProUGUI>();
-                textMeshes[0].text = general.generalName;
-                textMeshes[1].text = general.level.ToString();
-                textMeshes[2].text = general.curPhysical.ToString();
-                textMeshes[3].text = general.phase.ToString();
-                textMeshes[4].text = general.lead.ToString();
-                textMeshes[5].text = general.force.ToString();
-                textMeshes[6].text = general.IQ.ToString();
-                textMeshes[7].text = general.political.ToString();
-                textMeshes[8].text = general.moral.ToString();
-                textMeshes[9].text = general.loyalty == 100 ? "--" : general.loyalty.ToString();
-
+                Text[] textMeshes = toggleObj.GetComponentsInChildren<Text>();
+                //textMeshes[0].text = general.generalName;
+                textMeshes[0].text = general.level.ToString();
+                textMeshes[1].text = general.health.ToString();
+                textMeshes[2].text = general.phase.ToString();
+                textMeshes[3].text = general.lead.ToString();
+                textMeshes[4].text = general.force.ToString();
+                textMeshes[5].text = general.wisdom.ToString();
+                textMeshes[6].text = general.govern.ToString();
+                textMeshes[7].text = general.charm.ToString();
+                textMeshes[8].text = general.loyalty == 100 ? "--" : general.loyalty.ToString();
+                
                 // 添加监听器
                 toggle.onValueChanged.RemoveAllListeners();
                 toggle.onValueChanged.AddListener(delegate {
@@ -143,7 +162,7 @@ namespace TurnClass
                 });
 
                 // 初始化颜色
-                SetTextMeshProColor(normalColor, textMeshes);
+                SetTextColor(normalColor, toggleObj);
             }
         }
 
@@ -167,7 +186,7 @@ namespace TurnClass
                 }
 
                 // 设置选中时的颜色
-                SetTextMeshProColor(selectedColor, changedToggle.GetComponentsInChildren<TextMeshProUGUI>());
+                SetTextColor(selectedColor, changedToggle.gameObject);
             }
             else
             {
@@ -178,7 +197,7 @@ namespace TurnClass
                 }
 
                 // 设置未选中时的颜色
-                SetTextMeshProColor(normalColor, changedToggle.GetComponentsInChildren<TextMeshProUGUI>());
+                SetTextColor(normalColor, changedToggle.gameObject);
             }
 
             // 检查是否至少有一个 Toggle 被选中
@@ -205,16 +224,15 @@ namespace TurnClass
         }
 
         // 设置颜色的函数
-        void SetTextMeshProColor(Color color, TextMeshProUGUI[] textMeshes)
+        void SetTextColor(Color color, GameObject generalOption)
         {
-            foreach (var textMesh in textMeshes)
+            generalOption.GetComponentInChildren<TextMeshProUGUI>().color = color;
+            var texts = generalOption.GetComponentsInChildren<Text>();
+            foreach (var text in texts)
             {
-                textMesh.color = color;
+                text.color = color;
             }
         }
-
-
-
 
         void OnConfirmButtonClicked()
         {
@@ -227,34 +245,31 @@ namespace TurnClass
                         City targetCity = CityListCache.GetCityByCityId(targetCityId);
                         if (!secondConfirm)//第一次选将确认
                         {
-                            Debug.Log("判断超出，太守" + city.prefectId + "和" + string.Join(", ", doGeneralIds));
+                            Debug.Log("判断超出，太守" + city.prefectID + "和" + string.Join(", ", doGeneralIds));
                             if (doGeneralIds.Count + targetCity.GetCityOfficerNum() <= 10)//移动后目标城将领数量不大于10
                             {
-                                Debug.Log("判断全员太守" + city.prefectId + "和" + string.Join(", ", doGeneralIds));
+                                Debug.Log("判断全员太守" + city.prefectID + "和" + string.Join(", ", doGeneralIds));
                                 if (doGeneralIds.Count == city.GetCityOfficerNum())//移走了出发城全部将领
                                 {
-                                    Debug.Log("判断包含太守" + city.prefectId + "和" + string.Join(", ", doGeneralIds));
-                                    targetGeneralIds.Clear();
-                                    targetGeneralIds.AddRange(doGeneralIds);
-                                    targetGeneralIds.Remove(city.prefectId);
-                                    targetGeneralIds.Insert(0, city.prefectId);
+                                    Debug.Log("判断包含太守" + city.prefectID + "和" + string.Join(", ", doGeneralIds));
+                                    doGeneralIds.Remove(city.prefectID);
+                                    doGeneralIds.Insert(0, city.prefectID);
+                                    SetTargetGeneral(doGeneralIds);
                                     abandonPanel.SetActive(true);
                                     abandonButton.onClick.AddListener(OnAbandonButtonClicked);
                                     stopButton.onClick.AddListener(OnStopButtonClicked);
                                     Debug.Log("所有武将都已被选中！");
                                 }
-                                else if (doGeneralIds.Contains(city.prefectId))//移动的将领包含太守,需要任命新太守
+                                else if (doGeneralIds.Contains(city.prefectID))//移动的将领包含太守,需要任命新太守
                                 {
                                     secondConfirm = true;
-                                    targetGeneralIds.Clear();
-                                    targetGeneralIds.AddRange(doGeneralIds); 
+                                    SetTargetGeneral(doGeneralIds); 
                                     Debug.Log("总target:" + string.Join(", ", targetGeneralIds) + "总do:" + string.Join(", ", doGeneralIds));
                                     InitializeSelection();
                                 }
                                 else
                                 {
-                                    targetGeneralIds.Clear();
-                                    targetGeneralIds.AddRange(doGeneralIds);
+                                    SetTargetGeneral(doGeneralIds);
                                     Debug.Log("正常所选将领ID：" + string.Join(", ", targetGeneralIds));
                                     SceneManager.LoadScene("ExecutivePanel");
                                 }
@@ -268,7 +283,7 @@ namespace TurnClass
                         }
                         else //任命新太守
                         {
-                            city.prefectId = doGeneralIds[0];
+                            city.prefectID = doGeneralIds[0];
                             Debug.Log("总target:" + string.Join(", ", targetGeneralIds) + "总do:" + string.Join(", ", doGeneralIds));
                             SceneManager.LoadScene("ExecutivePanel");
                         }
@@ -277,42 +292,58 @@ namespace TurnClass
                         city = CityListCache.GetCityByCityId(doCityId);
                         if (!secondConfirm)//第一次确认选将战争
                         {
-                            Debug.Log("判断全员太守" + city.prefectId + "和" + string.Join(", ", doGeneralIds));
+                            Debug.Log("判断全员太守" + city.prefectID + "和" + string.Join(", ", doGeneralIds));
                             if (doGeneralIds.Count == city.GetCityOfficerNum())//全员出征战争
                             {
-                                Debug.Log("判断包含太守" + city.prefectId + "和" + string.Join(", ", doGeneralIds));
-                                targetGeneralIds.Clear();
-                                targetGeneralIds.AddRange(doGeneralIds);
-                                targetGeneralIds.Remove(city.prefectId);
-                                targetGeneralIds.Insert(0, city.prefectId);
+                                Debug.Log("判断包含太守" + city.prefectID + "和" + string.Join(", ", doGeneralIds));
+                                doGeneralIds.Remove(city.prefectID);
+                                doGeneralIds.Insert(0, city.prefectID);
+                                SetTargetGeneral(doGeneralIds);
                                 abandonPanel.SetActive(true);
+                                abandonButton.onClick.RemoveAllListeners();
                                 abandonButton.onClick.AddListener(OnAbandonButtonClicked);
+                                stopButton.onClick.RemoveAllListeners();
                                 stopButton.onClick.AddListener(OnStopButtonClicked);
                                 Debug.Log("所有武将都已被选中！");
                             }
-                            else if (doGeneralIds.Contains(city.prefectId))//出征包含太守任命为主将，需要任命新太守
+                            else if (doGeneralIds.Contains(city.prefectID))//出征包含太守任命为主将，需要任命新太守
                             {
                                 secondConfirm = true;
-                                targetGeneralIds.Clear();
-                                targetGeneralIds.AddRange(doGeneralIds);
-                                targetGeneralIds.Remove(city.prefectId);
-                                targetGeneralIds.Insert(0, city.prefectId);
+                                doGeneralIds.Remove(city.prefectID);
+                                doGeneralIds.Insert(0, city.prefectID);
+                                SetTargetGeneral(doGeneralIds);
                                 Debug.Log("总target:" + string.Join(", ", targetGeneralIds) + "总do:" + string.Join(", ", doGeneralIds));
                                 InitializeSelection();
                             }
-                            else
+                            else if (doGeneralIds.Count > 1)// 需要任命主将
                             {
-                                targetGeneralIds.Clear();
-                                targetGeneralIds.AddRange(doGeneralIds);
+                                secondConfirm = true;
+                                SetTargetGeneral(doGeneralIds);
+                                InitializeSelection();
+                                Debug.Log("待选主将，所选将领ID：" + string.Join(", ", targetGeneralIds));
+                                /*SetTargetGeneral(doGeneralIds);
+                                Debug.Log("正常所选将领ID：" + string.Join(", ", targetGeneralIds));
+                                SceneManager.LoadScene("ExecutivePanel");*/
+                            }
+                            else // 只有一个武将，直接任命为主将
+                            {
+                                SetTargetGeneral(doGeneralIds);
                                 Debug.Log("正常所选将领ID：" + string.Join(", ", targetGeneralIds));
                                 SceneManager.LoadScene("ExecutivePanel");
                             }
 
                         }
-                        else// 任命新太守
+                        else if (targetGeneralIds.Contains(city.prefectID))// 任命新太守
                         {
-                            city.prefectId = doGeneralIds[0];
+                            city.prefectID = doGeneralIds[0];
                             Debug.Log("总target:" + string.Join(", ", targetGeneralIds) + "总do:" + string.Join(", ", doGeneralIds));
+                            SceneManager.LoadScene("ExecutivePanel");
+                        }
+                        else
+                        {
+                            targetGeneralIds.Remove(doGeneralIds[0]);
+                            targetGeneralIds.Insert(0, doGeneralIds[0]);
+                            Debug.Log("正常所选将领ID：" + string.Join(", ", targetGeneralIds));
                             SceneManager.LoadScene("ExecutivePanel");
                         }
                         break;
@@ -323,10 +354,9 @@ namespace TurnClass
                         if (!secondConfirm)
                         {
                             secondConfirm = true;
-                            targetGeneralIds.Add(doGeneralIds[0]);
+                            SetTargetGeneral(doGeneralIds[0]);
                             doGeneralIds.Clear();
-                            optionalGeneralIds.Clear();
-                            optionalGeneralIds = city.GetOfficerIds().ToList();
+                            SetGeneralOption(city.GetOfficerIds());
                             CreateGeneralSelectionToggles(_singleSelect);
                         }
                         else
@@ -341,17 +371,14 @@ namespace TurnClass
                     case TaskType.Inherit:
                         Country country = CountryListCache.GetCountryByCountryId(playerCountryId);
                         country.Inherit(doGeneralIds[0]);
-                        SceneManager.LoadScene("GlobalScene");
-                        countryDieTips = 5;
+                        SceneManager.LoadScene("ExecutivePanel");
                         break;
                     case TaskType.SelfBuild:
                         if (!secondConfirm)//第一次选择新势力所有自建将领
                         {
                             secondConfirm = true;
-                            targetGeneralIds.Clear();
-                            targetGeneralIds.AddRange(doGeneralIds);
-                            optionalGeneralIds.Clear();
-                            optionalGeneralIds.AddRange(doGeneralIds);
+                            SetTargetGeneral(doGeneralIds);
+                            SetGeneralOption(doGeneralIds);
                             InitializeSelection();
                         }
                         else//第二次选择君主
@@ -362,7 +389,7 @@ namespace TurnClass
                     case TaskType.SelfRemove:
                         foreach (var id in doGeneralIds)
                         {
-                            DataManagement.RemoveCustomGeneral(id);
+                            DataManager.RemoveCustomGeneral(id);
                         }
                         SceneManager.LoadScene("StartScene");
                         break;
@@ -377,9 +404,16 @@ namespace TurnClass
         private void OnCancelButtonClicked()
         {
             doGeneralIds.Clear();
+            targetGeneralIds.Clear();
+            optionalGeneralIds.Clear();
             // 返回上一个场景
             if (Task == TaskType.Inherit)
             {
+                countryDieTips = 2;
+                if (PlayingState == GameState.AITurn)
+                {
+                    PlayingState = GameState.AIvsPlayer;
+                }
                 SceneManager.LoadScene("GlobalScene");
             }
             else if (Task == TaskType.SelfBuild || Task == TaskType.SelfRemove)
@@ -395,8 +429,8 @@ namespace TurnClass
 
         void OnAbandonButtonClicked()
         {
-            City city = CityListCache.GetCityByCityId(doCityId);
-            city.cityBelongKing = 0;
+            Country country = CountryListCache.GetCountryByCountryId(playerCountryId);
+            country.RemoveCity(doCityId);
             SceneManager.LoadScene("ExecutivePanel");
         }
 

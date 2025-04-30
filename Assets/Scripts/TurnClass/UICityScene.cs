@@ -20,8 +20,8 @@ namespace TurnClass
         [SerializeField] private TextMeshProUGUI cityName;
         [SerializeField] private TextMeshProUGUI king; 
         [SerializeField] private TextMeshProUGUI prefect;
-        [SerializeField] private TextMeshProUGUI rule;
-        [SerializeField] private RawImage head;
+        [SerializeField] private Text rule;
+        [SerializeField] private Image head;
         [SerializeField] private Text order;
         [SerializeField] private Text population;
         [SerializeField] private Text generalNum; 
@@ -72,11 +72,12 @@ namespace TurnClass
         [SerializeField] private Toggle infoToggle;
         [SerializeField] private Button cancelButton;//情报查看取消
         [SerializeField] private UIIntelligencePanel intelligencePanel;// 情报查看面板
-        private City _city;
+        [SerializeField] private City _city;
         private int _curGenIndex;
         void Start()
         {
-            DataManagement.Instance.LoadAndInitializeData();
+            //DataManager.Instance.LoadAndInitializeData();
+            _city = CityListCache.GetCityByCityId(doCityId);
             timeTitle.text = $"{years}年{month}月";
             doGeneralIds.Clear();
             optionalGeneralIds.Clear();
@@ -142,15 +143,16 @@ namespace TurnClass
 
         void ShowCityInfo()
         {
-            if (_city.cityBelongKing == 0)
+            if (_city.ownerID == 0)
             {
-                head.texture = Resources.Load<Texture2D>($"HeadImage/0");
-                prefect.text = "太守：无";
-                king.text = "君主：无";
+                DataManager.LoadSpriteToImage($"Assets/Image/Head/0.jpg", head);
+                prefect.text = "无";
+                king.text = "无";
             }
             else
             {
-                if (_city.cityBelongKing == CountryListCache.GetCountryByCountryId(playerCountryId).countryKingId)
+                var country = CountryListCache.GetCountryByKingId(_city.ownerID);
+                if (country == CountryListCache.GetCountryByCountryId(playerCountryId))
                 {
                     order.text = playerOrderNum.ToString();
                 }
@@ -158,21 +160,24 @@ namespace TurnClass
                 {
                     order.text = "?";
                 }
-                head.texture = Resources.Load<Texture2D>($"HeadImage/{_city.prefectId}");
-                prefect.text = $"太守：{GeneralListCache.GetGeneral(_city.prefectId).generalName}";
-                king.text = $"君主：{GeneralListCache.GetGeneral(_city.cityBelongKing).generalName}";
+                DataManager.LoadSpriteToImage($"Assets/Image/Head/{_city.prefectID}.jpg", head);
+                prefect.text = GeneralListCache.GetGeneral(_city.prefectID).generalName;
+                king.text = GeneralListCache.GetGeneral(_city.ownerID).generalName;
+                
+                if (ColorUtility.TryParseHtmlString(country.countryColor, out var cityColor))
+                    cityName.color = cityColor;
             }
             cityName.text = $"【{_city.cityName}】";
-            rule.text = $"統治：{_city.rule}";
-            population.text = _city.population.ToString();
+            rule.text = _city.GetRule().ToString();
+            population.text = _city.GetPopulation().ToString();
             generalNum.text = _city.GetCityOfficerNum().ToString();
             citySoldier.text = _city.GetCityAllSoldierNum().ToString();
-            agro.text = _city.agro.ToString();
-            trade.text = _city.trade.ToString();
-            flood.text = _city.floodControl.ToString();
+            agro.text = _city.GetAgro().ToString();
+            trade.text = _city.GetTrade().ToString();
+            flood.text = _city.GetFloodControl().ToString();
             gold.text = _city.GetMoney().ToString();
             food.text = _city.GetFood().ToString();
-            treasure.text = _city.treasureNum.ToString();
+            treasure.text = _city.GetTreasureNum().ToString();
         }
 
         //返回全国城市界面
@@ -194,16 +199,16 @@ namespace TurnClass
                 nextButton.gameObject.SetActive(true);
                 nextButton.onClick.RemoveAllListeners();
                 nextButton.onClick.AddListener(ShowNextGeneral);
-                infoToggle.gameObject.GetComponentInChildren<Text>().text = "城池";
-                optionalGeneralIds.Clear();
-                optionalGeneralIds = CityListCache.GetCityByCityId(targetCityId).GetOfficerIds().ToList();
+                infoToggle.gameObject.GetComponentInChildren<TextMeshProUGUI>().text = "城池";
+                
+                SetGeneralOption(CityListCache.GetCityByCityId(targetCityId).GetOfficerIds());
                 intelligencePanel.ShowIntelligencePanel(optionalGeneralIds[_curGenIndex]);
             }
             else
             {
                 previousButton.gameObject.SetActive(false);
                 nextButton.gameObject.SetActive(false);
-                infoToggle.gameObject.GetComponentInChildren<Text>().text = "武将";
+                infoToggle.gameObject.GetComponentInChildren<TextMeshProUGUI>().text = "武将";
                 intelligencePanel.gameObject.SetActive(false);
                 cityPanel.SetActive(true);
                 ShowCityInfo();
@@ -244,17 +249,53 @@ namespace TurnClass
         //移动
         void OnMoveButtonClick()
         {
-            Task = TaskType.Move;
-            SceneManager.LoadScene("GlobalScene");
+            var country = CountryListCache.GetCountryByCountryId(playerCountryId);
+            bool vacancy = false;
+            foreach (var cityId in country.cityIDs)
+            {
+                if (cityId != doCityId)
+                {
+                    var city = CityListCache.GetCityByCityId(cityId);
+                    if (city.GetCityOfficerNum() < 10) // 如果其他城市的将军数量小于 10
+                    {
+                        vacancy = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (vacancy)
+            {
+                Task = TaskType.Move;
+                SceneManager.LoadScene("GlobalScene");
+            }
+            else
+            {
+                Task = TaskType.MoveDeny;
+                SceneManager.LoadScene("ExecutivePanel");
+            }
+            
+            
         }
         //攻城
         void OnAttackButtonClick()
         {
             if (attackCount <= 2)
             {
-                attackCount++;
-                Task = TaskType.Attack;
-                SceneManager.LoadScene("GlobalScene");
+                Country plCountry = CountryListCache.GetCountryByCountryId(playerCountryId);
+                for (byte i = 0; i < _city.connectCityId.Length; i++)
+                {
+                    var city = CityListCache.GetCityByCityId(_city.connectCityId[i]);
+                    if (city.ownerID != plCountry.countryKingId && !plCountry.IsAlliance(_city.connectCityId[i])) // 如果连接城市不属于自己且不是同盟
+                    {
+                        Task = TaskType.Attack;
+                        SceneManager.LoadScene("GlobalScene");
+                        return;
+                    }
+                }
+                
+                Task = TaskType.AttackDeny;
+                SceneManager.LoadScene("ExecutivePanel");
             }
             else
             {
@@ -271,15 +312,23 @@ namespace TurnClass
 
         void OnTransportButtonClick()
         {
-            Task = TaskType.Transport;
-            SceneManager.LoadScene("GlobalScene");
+            if (CountryListCache.GetCountryByCountryId(playerCountryId).GetHaveCityNum() <= 1)
+            {
+                Task = TaskType.TransportDeny;
+                SceneManager.LoadScene("ExecutivePanel");
+            }
+            else
+            {
+                Task = TaskType.Transport;
+                SceneManager.LoadScene("GlobalScene");
+            }
         }
         
         // 当搜索按钮被点击时执行搜索检测
         void OnSearchButtonClick()
         {
             Task = TaskType.Search;
-            optionalGeneralIds = CityListCache.GetCityByCityId(doCityId).GetOfficerIds().ToList();
+            SetGeneralOption(CityListCache.GetCityByCityId(doCityId).GetOfficerIds());
             SceneManager.LoadScene("SelectGeneral");
         }
 
@@ -288,16 +337,15 @@ namespace TurnClass
             if (_city.GetCityOfficerNum() == 10) // 如果城市中的将军数量为 10
             {
                 Task = TaskType.OverEmploy;
-                doGeneralIds.Add(_city.prefectId);
                 SceneManager.LoadScene("ExecutivePanel");
                 return;
             }
-            optionalGeneralIds = _city.GetTalentIds(); // 获取在野将军 ID 数组
-            optionalGeneralIds.AddRange(_city.cityJailGeneralId); // 获取在押将军 ID 数组
+            List<short> employerIds = _city.GetTalentIds(); // 获取在野将军 ID 数组
+            employerIds.AddRange(_city.GetCaptureList());
+            SetGeneralOption(employerIds); // 获取在押将军 ID 数组
             if (optionalGeneralIds.Count == 0) // 如果可以登用的武将数量为 0
             {
                 Task = TaskType.EmployNothing;
-                doGeneralIds.Add(_city.prefectId);
                 SceneManager.LoadScene("ExecutivePanel");
                 return;
             }
@@ -315,7 +363,7 @@ namespace TurnClass
             if (canRewardGeneralIds.Count > 0)
             {
                 Task = TaskType.Reward;
-                optionalGeneralIds.AddRange(canRewardGeneralIds);
+                SetGeneralOption(canRewardGeneralIds);
                 SceneManager.LoadScene("SelectGeneral");
             }
             else
@@ -328,17 +376,17 @@ namespace TurnClass
         void OnAppointButtonClick()
         {
             Task = TaskType.Reward;
-            if (_city.prefectId == _city.cityBelongKing)
+            if (_city.prefectID == _city.ownerID)
             {
                 Task = TaskType.AppointDeny;
-                doGeneralIds.Add(_city.prefectId);
                 SceneManager.LoadScene("ExecutivePanel");
             }
             else
             {
                 Task = TaskType.Appoint;
-                optionalGeneralIds = _city.GetOfficerIds().ToList(); // 获取城市中的将军 ID 数组
-                optionalGeneralIds.Remove(_city.prefectId);
+                List<short> ids = _city.GetOfficerIds().ToList(); // 获取城市中的将军 ID 数组
+                ids.Remove(_city.prefectID);
+                SetGeneralOption(ids);
                 SceneManager.LoadScene("SelectGeneral");
             }
         }
@@ -352,7 +400,6 @@ namespace TurnClass
             if (_city.GetMoney() == 0) // 如果目标城市的金钱为 0
             {
                 Task = TaskType.Lack;
-                doGeneralIds.Add(_city.prefectId);
                 SceneManager.LoadScene("ExecutivePanel");
             }
 
@@ -361,13 +408,12 @@ namespace TurnClass
             if (propertyValue == maxValue) // 检查城市特定属性值
             {
                 Task = (TaskType)Enum.Parse(typeof(TaskType), "Over" + taskType);
-                doGeneralIds.Add(_city.prefectId);
                 SceneManager.LoadScene("ExecutivePanel");
             }
             else
             {
                 Task = taskType;
-                optionalGeneralIds =_city.GetOfficerIds().ToList();
+                SetGeneralOption(_city.GetOfficerIds());
                 SceneManager.LoadScene("SelectGeneral"); // 下一个选择武将场景
             }
         }
@@ -397,14 +443,12 @@ namespace TurnClass
                 { 
                     case TaskType.Shop:
                         Task = taskType;
-                        optionalGeneralIds.Clear();
-                        optionalGeneralIds = _city.GetOfficerIds().ToList();
+                        SetGeneralOption(_city.GetOfficerIds());
                         SceneManager.LoadScene("ExecutivePanel"); // 下一个选择武将场景
                         break;
                     case TaskType.Smithy:
                         Task = taskType;
-                        optionalGeneralIds.Clear();
-                        optionalGeneralIds = _city.GetOfficerIds().ToList();
+                        SetGeneralOption(_city.GetOfficerIds());
                         SceneManager.LoadScene("SelectGeneral"); // 下一个选择武将场景
                         break;
                     case TaskType.School:
@@ -412,8 +456,7 @@ namespace TurnClass
                         if (canStudyGeneralIds.Count > 0)
                         {
                             Task = taskType;
-                            optionalGeneralIds.Clear();
-                            optionalGeneralIds.AddRange(canStudyGeneralIds);
+                            SetGeneralOption(canStudyGeneralIds);
                             SceneManager.LoadScene("SelectGeneral"); // 下一个选择武将场景
                         }
                         else
@@ -427,8 +470,7 @@ namespace TurnClass
                         if (canTreatGeneralIds.Count > 0)
                         {
                             Task = taskType;
-                            optionalGeneralIds.Clear();
-                            optionalGeneralIds.AddRange(canTreatGeneralIds);
+                            SetGeneralOption(canTreatGeneralIds);
                             SceneManager.LoadScene("SelectGeneral");// 下一个选择武将场景}
                         }
                         else 
@@ -444,25 +486,25 @@ namespace TurnClass
         // 当开垦按钮被点击时执行开垦检测 
         public void OnReclaimButtonClick()
         {
-            UniversalInterior(TaskType.Reclaim,999, city => city.agro);
+            UniversalInterior(TaskType.Reclaim,999, city => city.GetAgro());
         }
 
         // 当劝商按钮被点击时执行劝商检测
         public void OnMercantileButtonClick()
         {
-            UniversalInterior(TaskType.Mercantile,999, city => city.trade);
+            UniversalInterior(TaskType.Mercantile,999, city => city.GetTrade());
         }
 
         // 当治水按钮被点击时执行治水检测
         public void OnTameButtonClick()
         {
-            UniversalInterior(TaskType.Tame,99, city => city.floodControl);
+            UniversalInterior(TaskType.Tame,99, city => city.GetFloodControl());
         }
 
         // 当巡查按钮被点击时执行巡查检测
         public void OnPatrolButtonClick()
         {
-            UniversalInterior(TaskType.Patrol,999999, city => city.population);
+            UniversalInterior(TaskType.Patrol,999999, city => city.GetPopulation());
         }
 
         
@@ -489,7 +531,6 @@ namespace TurnClass
             if (_city.GetCityOfficerNum() == 10) // 如果城市中的将军数量为 10
             {
                 Task = TaskType.OverEmploy;
-                doGeneralIds.Add(_city.prefectId);
                 SceneManager.LoadScene("ExecutivePanel");
                 return;
             }
@@ -499,7 +540,7 @@ namespace TurnClass
         void OnIntelligenceButtonClick()
         {
             Task = TaskType.Intelligence;
-            optionalGeneralIds = _city.GetOfficerIds().ToList();
+            SetGeneralOption(_city.GetOfficerIds());
             SceneManager.LoadScene("GlobalScene");
         }
 

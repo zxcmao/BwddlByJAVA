@@ -110,7 +110,7 @@ public class AIStateMachine
 
     public IEnumerator AiDoOeder(byte curTurnsCountryId)
     {
-        orderNum = CountryListCache.GetAIOredrNum(curTurnsCountryId);
+        orderNum = CountryListCache.GetAIOrderNum(curTurnsCountryId);
         while (AIUseOrderNum < orderNum)  // 当AI未执行完所有指令时
         {
             AIUseOrderNum++;
@@ -301,7 +301,7 @@ public class AIStateMachine
                 break;
             case 5:
             case 6:
-                AiJudgeBribe(); // 执行特定行为
+                AIPoachOrAlienate(); // 执行特定行为
                 break;
             case 7:
             case 8:
@@ -687,7 +687,7 @@ public class AIStateMachine
     /// Ai判断笼络操作
     /// </summary>
     /// <returns></returns>
-    bool AiJudgeBribe()
+    bool AIPoachOrAlienate()
     {
         short gohireId = 0;
         short behireId = 0;
@@ -753,7 +753,7 @@ public class AIStateMachine
         {
             if (BribeRate(gohireId, behireId))  // 判断招揽成功
             {
-                AiBribe(gohireCity, behireCity, gohireId, behireId);
+                AIPoach(gohireCity, behireCity, gohireId, behireId);
                 return true;
             }
             AiAlienate(behireCity, gohireId, behireId);  // 如果招揽失败，执行其他操作
@@ -860,7 +860,7 @@ public class AIStateMachine
     /// <param name="beCity"></param>
     /// <param name="word0"></param>
     /// <param name="word1"></param>
-    IEnumerator AiBribe(byte goCity, byte beCity, short word0, short word1)
+    IEnumerator AIPoach(byte goCity, byte beCity, short word0, short word1)
     {
         bool flag = BribeMovePossibility(goCity, beCity, word0, word1);
 
@@ -982,7 +982,7 @@ public class AIStateMachine
                 short generalId = city.GetReservedGeneralId((byte)UnityEngine.Random.Range(0, city.GetReservedGeneralNum()));
                 if (generalId > 0)
                 {
-                    short employGeneralId = city.GetDoSearchGen(generalId);
+                    short employGeneralId = city.GetDoEmployOfficer(generalId);
                     if (UIExecutivePanel.EmployKind(employGeneralId, generalId)==TaskType.EmploySuccess)
                     return;
                 }
@@ -2255,8 +2255,8 @@ public class AIStateMachine
     {
         return (GeneralListCache.GetGeneral(generalId)).force +
                (GeneralListCache.GetGeneral(generalId)).force *
-               ((WeaponListCache.GetWeapon((GeneralListCache.GetGeneral(generalId)).weapon)).weaponProperties +
-               (WeaponListCache.GetWeapon((GeneralListCache.GetGeneral(generalId)).armor)).weaponProperties) / 100;
+               ((WeaponListCache.GetWeapon((GeneralListCache.GetGeneral(generalId)).weapon)).property +
+               (WeaponListCache.GetWeapon((GeneralListCache.GetGeneral(generalId)).armor)).property) / 100;
     }
 
     void ResolveBattleOutcome(short winnerId, short loserId, int swordLoss, int winnerPower, int loserPower)
@@ -2292,8 +2292,8 @@ public class AIStateMachine
     {
         // 计算将领的单个战斗力
         int power = GeneralListCache.GetGeneral(id).force * 2 +
-                    GeneralListCache.GetGeneral(id).force * WeaponListCache.GetWeapon(GeneralListCache.GetGeneral(id).weapon).weaponProperties / 100 +
-                    GeneralListCache.GetGeneral(id).force * WeaponListCache.GetWeapon(GeneralListCache.GetGeneral(id).armor).weaponProperties / 100;
+                    GeneralListCache.GetGeneral(id).force * WeaponListCache.GetWeapon(GeneralListCache.GetGeneral(id).weapon).property / 100 +
+                    GeneralListCache.GetGeneral(id).force * WeaponListCache.GetWeapon(GeneralListCache.GetGeneral(id).armor).property / 100;
         long p = (1 + power * power * power / 100000);
 
         return (int)p;

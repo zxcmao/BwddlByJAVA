@@ -82,6 +82,7 @@ namespace Battle
             }
         }
 
+        // 玩家选择战术
         private void SelectTactic(byte tacticIndex)
         {
             Tactic tactic = GetTactic(tacticIndex);
@@ -91,21 +92,64 @@ namespace Battle
                 Debug.LogError("战术为空，无法应用！");
                 return;
             }
-            
-            // 假设当前计策点，且为玩家执行
-            if(tactic.CanExecute(BattleManager.Instance.hmTacticPoint, true))
+
+            if (!tactic.IsEnough(true))
             {
-                tactic.Execute(true);
+                tacticalPanel.SetActive(false);
+                UIBattle.Instance.NotifyBattleEvent("战术点不足，无法应用！", () =>
+                {
+                    UIBattle.Instance.pausePlayButton.onClick.Invoke();
+                });
+                return;
+            }
+            BattleManager.Instance.SubTacticalPoint(tactic.Cost, true);
+
+            if (tactic is IJudgeTactic judgeTactic)// 判断战术是否成功
+            {
+                if (judgeTactic.IsSuccessful(true))
+                {
+                    ApplyTactic(tactic.TacticID, true);
+                    Debug.Log($"玩家执行了{tactic.Name}");
+                    tacticalPanel.SetActive(false);
+                    UIBattle.Instance.NotifyBattleEvent(tactic.Name + "实施成功", () =>
+                    {
+                        if (tactic.TacticID == 1) // 决斗
+                        {
+                            BattleManager.Instance.ExecuteSolo();
+                        }
+                        else if (tactic is ExplosionTactic) // 爆炎
+                        {
+                            Troop troop = BattleManager.Instance.hmTroops[0];
+                            if (troop is Captain)
+                            {
+                                Captain captain = troop as Captain;
+                                captain.Explosion();
+                            }
+
+                            UIBattle.Instance.pausePlayButton.onClick.Invoke();
+                        }
+                        else // 其他战术
+                        {
+                            UIBattle.Instance.pausePlayButton.onClick.Invoke();
+                        }
+                    });
+                }
+                else
+                {
+                    UIBattle.Instance.hmTacticText.text = BattleManager.Instance.hmTacticPoint.ToString();
+                    tacticalPanel.SetActive(false);
+                    UIBattle.Instance.NotifyBattleEvent("执行战术失败",
+                        () => { UIBattle.Instance.pausePlayButton.onClick.Invoke(); });
+                }
+            }
+            else // 其他无需判断的战术，直接应用
+            {
                 ApplyTactic(tactic.TacticID, true);
                 Debug.Log($"玩家执行了{tactic.Name}");
                 tacticalPanel.SetActive(false);
                 UIBattle.Instance.NotifyBattleEvent(tactic.Name+"实施成功", () =>
                 {
-                    if (tactic.TacticID == 1) // 决斗
-                    {
-                        BattleManager.Instance.ExecuteSolo();
-                    }
-                    else if (tactic is ExplosionTactic) // 爆炎
+                    if (tactic is ExplosionTactic) // 爆炎
                     {
                         Troop troop = BattleManager.Instance.hmTroops[0];
                         if (troop is Captain)
@@ -121,30 +165,21 @@ namespace Battle
                     }
                 });
             }
-            else
-            {
-                BattleManager.Instance.hmTacticPoint -= tactic.Cost;
-                UIBattle.Instance.hmTacticText.text = BattleManager.Instance.hmTacticPoint.ToString();
-                tacticalPanel.SetActive(false);
-                UIBattle.Instance.NotifyBattleEvent("执行战术失败", () =>
-                {
-                    UIBattle.Instance.pausePlayButton.onClick.Invoke();
-                }); 
-            }
         }
     
         // 获取武将可使用的战术种类
         public void GetTacticsNum(General general)
         {
-            byte need = general.IQ;
+            byte need = general.wisdom;
             tacticsNum = need switch
             {
-                < 16 => 1,
-                < 39 => 2,
-                < 54 => 3,
-                < 62 => 4,
-                < 77 => 5,
-                < 93 => 6,
+                < 16 => 0,
+                < 39 => 1,
+                < 54 => 2,
+                < 62 => 3,
+                < 77 => 4,
+                < 93 => 5,
+                < 109 => 6,
                 _ => 1
             };
         }

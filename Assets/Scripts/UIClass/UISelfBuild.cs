@@ -12,7 +12,7 @@ namespace UIClass
 {
     public class UISelfBuild : MonoBehaviour
     {
-        [SerializeField] RawImage headImage;
+        [SerializeField] Image headImage;
         [SerializeField] TMP_InputField generalName;
         [SerializeField] TextMeshProUGUI grade;
         [SerializeField] TextMeshProUGUI army;
@@ -43,7 +43,11 @@ namespace UIClass
             resetButton.onClick.AddListener(ResetCharacterStatus);
             attributeButton.onClick.AddListener(ChangeCharacterAttributes);
             skillButton.onClick.AddListener(ChangeCharacterSkills);
+            buildButton.gameObject.SetActive(true);
+            buildButton.onClick.RemoveAllListeners();
             buildButton.onClick.AddListener(OnBuildButtonClick);
+            backButton.gameObject.SetActive(true);
+            backButton.onClick.RemoveAllListeners();
             backButton.onClick.AddListener(OnBackButtonClick);
         }
 
@@ -63,7 +67,8 @@ namespace UIClass
         {
             byte[] status = GenerateCharacterStatus();
             _id = (short)Random.Range(0, 21);
-            headImage.texture = Resources.Load<Texture>($"HeadImage/SelfHead/{_id}");
+            //TODO DataManager.LoadSpriteToImage($"HeadImage/SelfHead/{_id}", headImage);
+            headImage.sprite = Resources.Load<Sprite>($"HeadImage/SelfHead/{_id}");
             _general.army[0] = status[0];
             _general.army[1] = status[1];
             _general.army[2] = status[2];
@@ -75,10 +80,10 @@ namespace UIClass
         {
             List<byte> attributes = GenerateCharacterAttributes();
             _general.lead = attributes[0];
-            _general.political = attributes[1];
+            _general.govern = attributes[1];
             _general.force = attributes[2];
-            _general.IQ = attributes[3];
-            _general.moral = attributes[4];
+            _general.wisdom = attributes[3];
+            _general.charm = attributes[4];
             ShowGeneralInfo();
         }
 
@@ -95,12 +100,12 @@ namespace UIClass
             army.text = _general.GetArmyS();
             phase.text = _general.phase.ToString();
             phaseBar.transform.rotation = Quaternion.Euler(0, 0, (-(float)_general.phase + 6) * (360f / 149f)); 
-            curPhysical.text = _general.curPhysical.ToString();
+            curPhysical.text = _general.health.ToString();
             lead.text = _general.lead.ToString();
             force.text = _general.force.ToString();
-            IQ.text = _general.IQ.ToString();
-            political.text = _general.political.ToString();
-            charm.text = _general.moral.ToString();
+            IQ.text = _general.wisdom.ToString();
+            political.text = _general.govern.ToString();
+            charm.text = _general.charm.ToString();
             skills.text = _general.GetActiveSkills();
         }
         /// <summary>
@@ -226,7 +231,7 @@ namespace UIClass
 
         private void OnBuildButtonClick()
         {
-            DataManagement.AddCustomGeneral(_general, _id);
+            DataManager.AddCustomGeneral(_general, _id);
             gameObject.SetActive(false);
         }
         

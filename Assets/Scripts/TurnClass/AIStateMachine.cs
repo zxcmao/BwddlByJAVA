@@ -1,4 +1,4 @@
-using System;
+/*using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -46,7 +46,7 @@ namespace TurnClass
             currentState = AIState.Idle;
             curTurnsCountryId = countryId;
             _curCountry = CountryListCache.GetCountryByCountryId(countryId);
-            orderNum = CountryListCache.GetAIOredrNum(countryId);
+            orderNum = CountryListCache.GetAIOrderNum(countryId);
             AIFinish = false;
         }
 
@@ -91,7 +91,7 @@ namespace TurnClass
             default:
                 throw new NotImplementedException();
         }
-    }*/
+    }#1#
         
         
         public IEnumerator AIDoOrder()
@@ -261,7 +261,7 @@ namespace TurnClass
                     break;
                 case 5:
                 case 6:
-                    yield return AiJudgeBribe(); // 执行特定行为
+                    yield return AIPoachOrAlienate(); // 执行特定行为
                     break;
                 case 7:
                 case 8:
@@ -401,7 +401,7 @@ namespace TurnClass
                             if (general.GetCurPhysical() < general.maxPhysical)
                             {
                                 byte addPhysical = (byte)(general.maxPhysical - general.GetCurPhysical());
-                                general.AddCurPhysical(addPhysical);
+                                general.AddHp(addPhysical);
                             }
                         }
                     }
@@ -501,7 +501,7 @@ namespace TurnClass
                             if (general.GetCurPhysical() < general.maxPhysical)
                             {
                                 byte addPhysical = (byte)(general.maxPhysical- general.GetCurPhysical());
-                                general.AddCurPhysical(addPhysical);
+                                general.AddHp(addPhysical);
                             }
                         }
 
@@ -638,7 +638,7 @@ namespace TurnClass
         /// Ai判断笼络操作
         /// </summary>
         /// <returns></returns>
-        IEnumerator AiJudgeBribe()
+        IEnumerator AIPoachOrAlienate()
         {
             short doGenId = 0;
             short beGenId = 0;
@@ -693,7 +693,7 @@ namespace TurnClass
             {
                 if (GeneralListCache.IsBribe(doCityId, beCityId, doGenId, beGenId))  // 判断招揽成功
                 {
-                    yield return AiBribe(doCityId, beCityId, doGenId, beGenId);
+                    yield return AIPoach(doCityId, beCityId, doGenId, beGenId);
                     yield break;
                 }
                 yield return AiAlienate(beCityId, doGenId, beGenId);  // 如果招揽失败，执行离间操作
@@ -745,7 +745,7 @@ namespace TurnClass
         /// <param name="beCityId"></param>
         /// <param name="doGenId"></param>
         /// <param name="beGenId"></param>
-        IEnumerator AiBribe(byte doCityId, byte beCityId, short doGenId, short beGenId)
+        IEnumerator AIPoach(byte doCityId, byte beCityId, short doGenId, short beGenId)
         {
             if (CityListCache.GetCityByCityId(beCityId).cityBelongKing == CountryListCache.GetCountryByCountryId(GameInfo.playerCountryId).countryKingId)
             {
@@ -795,7 +795,7 @@ namespace TurnClass
                     city.IsEmploy(generalId, id);
                 }
 
-                short 回收武将 = city.GetMostIqMoralGeneralInCity();
+                short 回收武将 = city.GetDoSearchOfficer();
                 city.Search(回收武将);
 
             }
@@ -824,7 +824,7 @@ namespace TurnClass
                 if (city.GetCityOfficerNum() < 10 && talentIds.Count > 0)
                 {
                     short generalId = talentIds[Random.Range(0, talentIds.Count)];
-                    short employGeneralId = city.GetDoSearchGen(generalId);
+                    short employGeneralId = city.GetDoEmployOfficer(generalId);
                     if (city.IsEmploy(employGeneralId, generalId))
                         return;
                 }
@@ -835,7 +835,7 @@ namespace TurnClass
                 City city = CityListCache.GetCityByCityId(cityID);
                 if (city.GetReservedGeneralNum() > 0)
                 {
-                    short generalId = city.GetMostIqMoralGeneralInCity();
+                    short generalId = city.GetDoSearchOfficer();
                     city.Search(generalId);
                 }
             }
@@ -2351,8 +2351,8 @@ namespace TurnClass
         int CalculateGeneralPower(General general)
         {
             return general.force + general.force *
-                   (WeaponListCache.GetWeapon(general.weapon).weaponProperties +
-                    WeaponListCache.GetWeapon(general.armor).weaponProperties) / 100;
+                   (WeaponListCache.GetWeapon(general.weapon).property +
+                    WeaponListCache.GetWeapon(general.armor).property) / 100;
         }
 
         void ResolveBattleOutcome(General winner, General loser, int swordLoss, int winnerPower, int loserPower)
@@ -2388,8 +2388,8 @@ namespace TurnClass
         {
             // 计算将领的单个战斗力
             int power = general.force * 2 +
-                        general.force * WeaponListCache.GetWeapon(general.weapon).weaponProperties / 100 +
-                        general.force * WeaponListCache.GetWeapon(general.armor).weaponProperties / 100;
+                        general.force * WeaponListCache.GetWeapon(general.weapon).property / 100 +
+                        general.force * WeaponListCache.GetWeapon(general.armor).property / 100;
             long p = (1 + power * power * power / 100000);
 
             return (int)p;
@@ -2591,7 +2591,7 @@ namespace TurnClass
             {
                 byte physical = (byte)AiTreatValue();  // 获取随机治疗效果
                 General general = GeneralListCache.GetGeneral(treatGeneralIds[i]);  // 获取当前操作的将领
-                general.AddCurPhysical(physical);  // 增加将领的当前体力
+                general.AddHp(physical);  // 增加将领的当前体力
             }
             city.SubGold(50);  // 从城市的金钱中扣除 50
         }
@@ -2605,4 +2605,4 @@ namespace TurnClass
             return Random.Range(33, 51);  // 返回 33 到 51 的随机值
         }
     }
-}
+}*/

@@ -31,7 +31,7 @@ namespace SelectCountry.UI
             Debug.Log("Awake called");
             rootVisualElement = GetComponent<UIDocument>().rootVisualElement;
 
-            DataManagement.LoadAndInitializeData();
+            DataManager.LoadAndInitializeData();
 
         }
 

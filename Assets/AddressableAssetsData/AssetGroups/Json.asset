@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Json
+  m_EditorClassIdentifier: 
+  m_GroupName: Json
+  m_GUID: 01af71c28b50e7d4e94dad1d377cb289
+  m_SerializeEntries:
+  - m_GUID: 5a1d6d22c07b8514fac02ce5e334b8a9
+    m_Address: Assets/Data/Json/CityData.json
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Json
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c3e7881f7012f8948a4e23a2b95e7abd
+    m_Address: Assets/Data/Json/CountryData.json
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Json
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d4eca2a677b952b4b9e309d28509aaec
+    m_Address: Assets/Data/Json/WeaponData.json
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Json
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e385275e4ec115d4faef12beae192dc7
+    m_Address: Assets/Data/Json/GeneralData.json
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Json
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f70a1d87ca66c0e4ebd21058d809088c
+    m_Address: Assets/Data/Json/ChapterData.json
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Json
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 4d81225103f817f439bd10945925ca66, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: fdcd6624ef9537c439ad9fbe19aefd33, type: 2}
+    - {fileID: 11400000, guid: b5b9b51663607484cb01383e86b6f391, type: 2}

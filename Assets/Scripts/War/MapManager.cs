@@ -41,7 +41,7 @@ namespace War
         [SerializeField] private Tilemap tilemap;
         [SerializeField] private Canvas unitCanvas;
         [SerializeField] private Tile[] terrainTiles;
-        [SerializeField] private GameObject unitPrefab;
+        [SerializeField] public GameObject unitPrefab;
         [SerializeField] public GameObject markerPrefab;
         private Vector3? _selectedCell; // 存储当前选中的单元格
         private List<GameObject> _markers = new List<GameObject>(); // 存储所有生成的标记
@@ -49,12 +49,6 @@ namespace War
 
         private static byte _rows = 19;// 行数
         private static byte _cols = 32;// 列数
-
-        private static byte[,] WarMap
-        {
-            get => WarManager.Instance.warMap;
-            set => WarManager.Instance.warMap = value;
-        }
         
         
         private Vector2Int[] _attackerPos = new Vector2Int[15];
@@ -71,25 +65,20 @@ namespace War
                 Destroy(gameObject); // 防止多个实例
             }
         }
+
         
 
-        public static void LoadMap()
-        {
-            // 获取单例实例并调用方法
-            Instance.LoadAndGenerateMap();
-        }
-        
-        void LoadAndGenerateMap()
+        public void LoadAndGenerateMap()
         {
             LoadMap(WarManager.Instance.curWarCityId);
-            GenerateMap(WarMap);
+            GenerateMap(WarManager.Instance.warMap);
         }
 
         private void LoadMap(byte cityId)
         {
-            if (DataManagement.maps.TryGetValue(cityId, out byte[,] mapData))
+            if (DataManager.maps.TryGetValue(cityId, out byte[,] mapData))
             {
-                WarMap = mapData;
+                WarManager.Instance.warMap = new byte[_rows, _cols];
                 byte i = 0;
                 byte j = 0;
 
@@ -97,23 +86,25 @@ namespace War
                 {
                     for (byte col = 0; col < _cols; col++)
                     {
-                        if (WarMap[row, col] == 1)
+                        WarManager.Instance.warMap[row, col] = mapData[row, col];
+                        if (mapData[row, col] == 1)
                         {
                             _attackerPos[i] = new Vector2Int(col, row);
                             i++;
                         }
-                        else if (WarMap[row, col] == 2)
+                        else if (mapData[row, col] == 2)
                         {
                             _defenderPos[j] = new Vector2Int(col, row);
                             j++;
                         }
-                        else if (WarMap[row, col] == 8)
+                        else if (mapData[row, col] == 8)
                         {
                             WarManager.Instance.cityPos = new Vector2Int(col, row);
                         }
                     }
                 }
-                Log2DArray(WarMap);// 测试输出地图数组
+                
+                Log2DArray(WarManager.Instance.warMap);// 测试输出地图数组
                 
             }
             else
@@ -126,7 +117,7 @@ namespace War
             if (File.Exists(filePath))
             {
                 string[] lines = File.ReadAllLines(filePath);
-                WarMap = new byte[_rows, _cols];
+                WarManager.Instance.warMap = new byte[_rows, _cols];
                 byte i = 0;
                 byte j = 0;
 
@@ -135,24 +126,24 @@ namespace War
                     string[] values = lines[row].Split(',');
                     for (byte col = 0; col < _cols; col++)
                     {
-                        WarMap[row, col] = byte.Parse(values[col]);
-                        if (WarMap[row, col] == 1)
+                        WarManager.Instance.warMap[row, col] = byte.Parse(values[col]);
+                        if (WarManager.Instance.warMap[row, col] == 1)
                         {
                             _attackerPos[i] = new Vector2Int(col, row);
                             i++;
                         }
-                        else if (WarMap[row, col] == 2)
+                        else if (WarManager.Instance.warMap[row, col] == 2)
                         {
                             _defenderPos[j] = new Vector2Int(col, row);
                             j++;
                         }
-                        else if (WarMap[row, col] == 8)
+                        else if (WarManager.Instance.warMap[row, col] == 8)
                         {
                             cityPos = new Vector2Int(col, row);
                         }
                     }
                 }
-                Log2DArray(WarMap);// 测试输出地图数组
+                Log2DArray(WarManager.Instance.warMap);// 测试输出地图数组
             }
             else
             {
@@ -434,7 +425,7 @@ namespace War
                 if (IsValidCell(neighbor.x, neighbor.y))
                 {
                     // 检查是否是友军单位
-                    if (GetCellUnit(WarMap[neighbor.y, neighbor.x]) == friendUnitType)
+                    if (GetCellUnit(WarManager.Instance.warMap[neighbor.y, neighbor.x]) == friendUnitType)
                     {
                         adjacentFriendCount++;
                     }
@@ -498,16 +489,16 @@ namespace War
                 unitObj.GetArmySprite();
                 if (isPlayer)
                 {
-                    WarMap[unitObj.arrayPos.y, unitObj.arrayPos.x] |= 0x40;
+                    WarManager.Instance.warMap[unitObj.arrayPos.y, unitObj.arrayPos.x] |= 0x40;
                     WarManager.Instance.hmUnits.Add(unitObj);
                 }
                 else
                 {
-                    WarMap[unitObj.arrayPos.y, unitObj.arrayPos.x] |= 0x80;
+                    WarManager.Instance.warMap[unitObj.arrayPos.y, unitObj.arrayPos.x] |= 0x80;
                     WarManager.Instance.aiUnits.Add(unitObj);
                 }
                 AddUnit(unitObj.arrayPos, unitObj);
-                Debug.Log("单位" + unitObj.genID + "在" + unitObj.arrayPos.x + "," + unitObj.arrayPos.y);
+                Debug.Log(unitPre.name + "生成在" + unitObj.arrayPos.x + "," + unitObj.arrayPos.y);
             }
         }
         
@@ -538,7 +529,7 @@ namespace War
                     }
                     else
                     {
-                        WarMap[unitObj.arrayPos.y, unitObj.arrayPos.x] |= 0x40;
+                        WarManager.Instance.warMap[unitObj.arrayPos.y, unitObj.arrayPos.x] |= 0x40;
                         AddUnit(unitObj.arrayPos, unitObj);
                     }
                     WarManager.Instance.hmUnits.Add(unitObj);
@@ -551,12 +542,12 @@ namespace War
                     }
                     else
                     {
-                        WarMap[unitObj.arrayPos.y, unitObj.arrayPos.x] |= 0x80;
+                        WarManager.Instance.warMap[unitObj.arrayPos.y, unitObj.arrayPos.x] |= 0x80;
                         AddUnit(unitObj.arrayPos, unitObj);
                     }
                     WarManager.Instance.aiUnits.Add(unitObj);
                 }
-                Debug.Log("单位" + unitObj.genID + "在" + unitObj.arrayPos.x + "," + unitObj.arrayPos.y);
+                Debug.Log(unitPre.name + "恢复在" + unitObj.arrayPos.x + "," + unitObj.arrayPos.y);
             }
         }
         
@@ -602,7 +593,7 @@ namespace War
                         continue; // 如果已经评估过，跳过
 
                     // 获取邻居的地形类型和消耗
-                    byte terrainType = WarMap[neighbor.y, neighbor.x];
+                    byte terrainType = WarManager.Instance.warMap[neighbor.y, neighbor.x];
                     int moveCost = GetCellNeedMoves(terrainType, unitObj.genID);
 
                     // 计算新的 G 值
@@ -718,6 +709,7 @@ namespace War
                 // 第二次点击确认移动
                 if (_selectedCell.Value == worldPos)
                 {
+                    WarManager.Instance.hmUnitObj.SetMoveBonus(clickedCell.Item2);
                     WarManager.Instance.hmUnitObj.MoveUnitToCell(clickedCell); // 移动将军到选中的位置
                     WarManager.Instance.hmUnitObj.SetUnitState(UnitState.None);
                     
@@ -789,7 +781,7 @@ namespace War
                     if (IsValidCell(targetX, targetY))
                     {
                         // 获取地形类型
-                        byte terrainType = WarMap[targetY, targetX];
+                        byte terrainType = WarManager.Instance.warMap[targetY, targetX];
 
                         // 添加到结果列表
                         result.Add(new Vector2Int(targetX, targetY), terrainType);
@@ -912,8 +904,8 @@ namespace War
                 {
                     WarManager.Instance.hmUnitObj.SubMoveBonus(plan.UseCost(doGen));
                 }
-                StartCoroutine(UIWar.Instance.uiPlanResult.ShowPlanResult(WarManager.Instance.planIndex, 
-                    WarManager.Instance.planResult));
+                UIWar.Instance.uiPlanResult.ShowPlanResultWithConfirm(WarManager.Instance.planIndex, 
+                    WarManager.Instance.planResult, () => { });
             }
             else// 奇门遁甲对地施放
             {
@@ -935,9 +927,10 @@ namespace War
                 {
                     textComponent.text = String.Empty; // 显示X
                 }
-                StartCoroutine(UIWar.Instance.uiPlanResult.ShowPlanResult(WarManager.Instance.planIndex, plan.Result(doGen, null ,true)));
+                UIWar.Instance.uiPlanResult.ShowPlanResultWithConfirm(WarManager.Instance.planIndex, 
+                    plan.Result(doGen, null ,true), () => { });
                 WarManager.Instance.hmUnitObj.SubMoveBonus(plan.UseCost(doGen));
-                GeneralListCache.GetGeneral(WarManager.Instance.hmUnitObj.genID).generalSoldier -= 100;
+                GeneralListCache.GetGeneral(WarManager.Instance.hmUnitObj.genID).soldiers -= 100;
                 WarManager.Instance.hmUnitObj.GetArmySprite(); // 更新将军贴图
             }
             ClearAllMarkers();
@@ -960,7 +953,7 @@ namespace War
                 if (IsValidCell(neighbor.x, neighbor.y))
                 {
                     // 获取地形类型
-                    byte terrainType = WarMap[neighbor.y, neighbor.x];
+                    byte terrainType = WarManager.Instance.warMap[neighbor.y, neighbor.x];
 
                     // 添加到结果列表
                     result.Add(neighbor, terrainType);
@@ -1068,7 +1061,7 @@ namespace War
                         continue;
 
                     // 获取邻居的地形消耗
-                    byte terrainType = ignoreAI ? (byte)(WarMap[neighbor.y, neighbor.x] & 0x7F) : WarMap[neighbor.y, neighbor.x];
+                    byte terrainType = ignoreAI ? (byte)(WarManager.Instance.warMap[neighbor.y, neighbor.x] & 0x7F) : WarManager.Instance.warMap[neighbor.y, neighbor.x];
                     byte moveCost = (byte)GetCellNeedMoves(terrainType, unit.genID);
 
                     // 计算新 G 值
@@ -1107,7 +1100,7 @@ namespace War
             // 回溯路径
             while (currentNode.parent != null) // 忽略起点
             {
-                byte terrainType = WarMap[currentNode.position.y, currentNode.position.x];
+                byte terrainType = WarManager.Instance.warMap[currentNode.position.y, currentNode.position.x];
                 byte moveCost = (byte)GetCellNeedMoves(terrainType, genID); // 当前点的单步消耗
                 path.Add((currentNode.position, moveCost));
                 currentNode = currentNode.parent;

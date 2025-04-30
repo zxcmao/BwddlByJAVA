@@ -83,7 +83,7 @@ namespace BaseClass
             else
             {
                 attackPower = (short)((general.lead * 2 + general.force) / 3 + (general.lead + general.force) * (general.level - 1) / 25);
-                defensePower = (short)((general.lead * 2 + general.IQ) / 3 + (general.lead + general.IQ) * (general.level - 1) / 25);
+                defensePower = (short)((general.lead * 2 + general.wisdom) / 3 + (general.lead + general.wisdom) * (general.level - 1) / 25);
                 if (general.HasSkill(3, 7))// 特技军神
                 {
                     attackPower += (short)(attackPower/4);
@@ -196,9 +196,7 @@ namespace BaseClass
         public TroopState currentState => data.troopState;      // 行动状态
         public byte canActionPoints = 1;           // 行动次数
         public Animator troopAnimation;     // 受击动画
-
-    
-        public List<(byte x, byte y)> detectedPositions;
+        
     
         private const float 难度系数 = 1f;
         private const float 电脑战斗增幅 = 1.25f;
@@ -263,7 +261,7 @@ namespace BaseClass
                     case TroopState.BackWard:
                         if (IsRetreat())
                             yield break;
-                        directions = isPlayer ? new byte[1] { 2 } : new byte[1] { 3 };
+                        directions = isPlayer ? new byte[] { 2 } : new byte[] { 3 };
                         byte backWard = MoveBackWard();
                         if (backWard != 255)
                         {
@@ -277,7 +275,7 @@ namespace BaseClass
                         yield return new WaitForSeconds(0.5f);
                         break;
                     case TroopState.Idle:
-                        directions = isPlayer ? new byte[4] { 3, 0, 1 ,2} : new byte[4] { 2, 0, 1 ,3};
+                        directions = isPlayer ? new byte[] { 3, 0, 1 ,2} : new byte[] { 2, 0, 1 ,3};
                         if (GetAtkTarget(directions, out atkTarget))
                         {
                             Attack(atkTarget);
@@ -683,7 +681,7 @@ namespace BaseClass
             }
             else
             {
-                if (IsPassable(selfX - 1, selfY)) return 3;
+                if (IsPassable(selfX + 1, selfY)) return 3;
                 if (IsPassable(selfX, selfY - 1)) return 0;
                 if (IsPassable(selfX, selfY + 1)) return 1;
             }
@@ -911,21 +909,21 @@ namespace BaseClass
             }
         }
 
-        public virtual float CalculateDamage(Troop attacker)
+        public virtual float CalculateDamage()
         {
-            General atkGen = GeneralListCache.GetGeneral(attacker.generalID);
+            General atkGen = GeneralListCache.GetGeneral(generalID);
             // 获取进攻方攻击力
-            int gjl = attacker.attackPower; // 当前攻击方的攻击力
+            int gjl = attackPower; // 当前攻击方的攻击力
 
             // 计算当前血量的20分之一作为最小伤害
-            int F = attacker.health / 20;
+            int F = health / 20;
 
-            // 计算最终的伤害值
+            // 计算伤害值下限
             float damage = Mathf.Max(gjl,F);
 
             // 如果血量低于200，伤害减少
-            if (attacker.health < 200)
-                damage = damage * attacker.health / 200.0f;
+            if (health < 200)
+                damage = damage * health / 200.0f;
 
             // 确保伤害最小为1
             damage = Mathf.Max(damage,1.0f);
@@ -934,7 +932,7 @@ namespace BaseClass
             bool isbaoji = false;
 
             // AI进攻时的计算
-            if (attacker.isPlayer)
+            if (isPlayer)
             {
                 // 检查是否触发特定攻击效果
                 if (UIBattle.Instance.uiTactic.CheckTacticalState(4,true))
@@ -942,7 +940,7 @@ namespace BaseClass
                     damage = damage * 4.0f / 3.0f; // 呐喊增伤效果
                 }
             }
-            else if (!attacker.isPlayer)
+            else
             {
                 // 检查是否触发特定攻击效果
                 if (UIBattle.Instance.uiTactic.CheckTacticalState(4,false))
@@ -973,10 +971,10 @@ namespace BaseClass
         }
     
         // 执行小战场战斗攻击伤害逻辑
-        public virtual void BattleHurtCalculate(Troop attacker)
+        public virtual short BattleHurtCalculate(Troop attacker)
         {
             General defGen = GeneralListCache.GetGeneral(generalID);
-            float damage = CalculateDamage(attacker); // 调用方法获取伤害值
+            float damage = attacker.CalculateDamage(); // 调用方法获取伤害值
             short fyl = defensePower; // 当前防御方的防御力
         
             // 检查技能3，减少伤害值
@@ -1004,20 +1002,20 @@ namespace BaseClass
             }
         
             // 防御系数计算
-            float defIndex = fyl / 150.0f;
+            float defIndex = fyl / 150f;
             defIndex *= TextLibrary.hj[fyl - 1]; // 乘以一个修正系数
             damage = damage * 1.0f / (defIndex + 1.0f);
-            short loss = (short)Math.Min(damage, health);
-            UpdateHealth((short)-loss);
-            UIBattle.Instance.UpdateBattleInfo(isPlayer, loss, troopType);
-            Debug.Log($"{gameObject.name}({arrayPos.x},{arrayPos.y})受到来自{attacker.gameObject.name}({attacker.arrayPos.x},{attacker.arrayPos.y})的伤害{loss}");
+            return (short)Math.Min(damage, health);
         }
     
         // 受到伤害动画
         public void TakeDamage(Troop attacker)
         {
             // 受伤逻辑
-            BattleHurtCalculate(attacker);
+            short loss = BattleHurtCalculate(attacker);
+            UpdateHealth((short)-loss);
+            UIBattle.Instance.UpdateBattleInfo(isPlayer, loss, troopType);
+            Debug.Log($"{gameObject.name}({arrayPos.x},{arrayPos.y})受到来自{attacker.gameObject.name}({attacker.arrayPos.x},{attacker.arrayPos.y})的伤害{loss}");
             // 播放受击动画
             troopAnimation = gameObject.GetComponent<Animator>();
             if (troopAnimation != null)
@@ -1117,21 +1115,21 @@ namespace BaseClass
     {
         // 待做：激励士气的逻辑，提升附近部队的攻击力或防御力
     
-        public override float CalculateDamage(Troop attacker)
+        public override float CalculateDamage()
         {
-            General atkGen = GeneralListCache.GetGeneral(attacker.generalID);
+            General atkGen = GeneralListCache.GetGeneral(generalID);
             // 获取进攻方攻击力
-            short gjl = attacker.attackPower;
+            short gjl = attackPower;
 
             // 计算当前血量的20分之一作为最小伤害
-            int F = attacker.health / 20;
+            int F = health / 20;
 
             // 计算最终的伤害值
             float damage = Mathf.Max(gjl, F);
 
             // 如果血量低于200，伤害减少
-            if (attacker.health < 200)
-                damage = damage * attacker.health / 200.0f;
+            if (health < 200)
+                damage = damage * health / 200.0f;
 
             // 确保伤害最小为1
             damage = Mathf.Max(damage, 1.0f);
@@ -1140,7 +1138,7 @@ namespace BaseClass
             bool isbaoji = false;
 
             // AI进攻时的计算
-            if (attacker.isPlayer)
+            if (isPlayer)
             {
                 // 检查是否触发特定攻击效果
                 if (UIBattle.Instance.uiTactic.CheckTacticalState(4,true))
@@ -1148,7 +1146,7 @@ namespace BaseClass
                     damage = damage * 4.0f / 3.0f; // 呐喊增伤效果
                 }
             }
-            else if (!attacker.isPlayer)
+            else
             {
                 // 检查是否触发特定攻击效果
                 if (UIBattle.Instance.uiTactic.CheckTacticalState(4,false))
@@ -1233,10 +1231,10 @@ namespace BaseClass
         }
     
         // 将军受伤的逻辑
-        public override void BattleHurtCalculate(Troop attacker)
+        public override short BattleHurtCalculate(Troop attacker)
         {
             General defGen = GeneralListCache.GetGeneral(generalID);
-            float damage = CalculateDamage(attacker); // 调用sht方法获取伤害值
+            float damage = attacker.CalculateDamage(); // 获取攻击方伤害值
             short fyl = defensePower; // 当前防御方的防御力
         
             // 检查技能3，减少伤害值
@@ -1254,23 +1252,12 @@ namespace BaseClass
                 }
             }
         
-            // 是否进入单挑界面
-            if (attacker.troopType == TroopType.Captain)
-            {
-                //this.singleFigth = true; // 设置单挑模式
-                return;
-            }
-        
             // 防御系数计算
             float defIndex = fyl / 150.0f;
             defIndex *= TextLibrary.hj[fyl - 1]; // 乘以一个修正系数
 
             damage = damage * 1.0f / (defIndex + 1.0f);
-            short loss = (short)Math.Min(damage/3.0f, health);
-            UpdateHealth((short)-loss);
-
-            UIBattle.Instance.UpdateBattleInfo(isPlayer, (short)(loss / 3), troopType );
-            Debug.Log($"将军{arrayPos.x},{arrayPos.y}受到来自{attacker.arrayPos.x},{attacker.arrayPos.y}的伤害{loss}");
+            return (short)Math.Min(damage/3.0f, health);
         }
     
         // 将领使用爆炎
@@ -1375,7 +1362,7 @@ namespace BaseClass
             byte cityNum = 0;// 获取君主是否有可以撤退的城市
             if (isPlayer)
             {
-                List<byte> retreatCityList = WarManager.GetRetreatCityList(WarManager.Instance.hmKingId);
+                List<byte> retreatCityList = WarManager.GetRetreatCityList();
                 // 如果返回结果为 null 或空，设置默认值
                 if (retreatCityList != null && retreatCityList.Count != 0)
                 {
@@ -1384,7 +1371,7 @@ namespace BaseClass
             }
             else
             {
-                List<byte> retreatCityList = WarManager.AIGetRetreatCityList(WarManager.Instance.aiKingId);
+                List<byte> retreatCityList = WarManager.AIGetRetreatCityList();
                 // 如果返回结果为 null 或空，设置默认值
                 if (retreatCityList != null && retreatCityList.Count != 0)
                 {
@@ -1399,7 +1386,7 @@ namespace BaseClass
             General general = GeneralListCache.GetGeneral(generalID); // 获取将领
             
             // 如果将领的体力或者忠诚度超过一定值，AI将不会被俘
-            if (general.GetCurPhysical() > (int)(25.0 - general.force * 1.7 / 10.0) || general.GetLoyalty() > 99)
+            if (general.GetHP() > (int)(25.0 - general.force * 1.7 / 10.0) || general.GetLoyalty() > 99)
                 return false;
 
             // 检查周围的敌方单位，并计算撤退的可能性
@@ -1484,21 +1471,21 @@ namespace BaseClass
     
     public class Cavalry : Troop
     {
-        public override float CalculateDamage(Troop attacker)
+        public override float CalculateDamage()
         {
-            General atkGen = GeneralListCache.GetGeneral(attacker.generalID);
+            General atkGen = GeneralListCache.GetGeneral(generalID);
             // 获取进攻方攻击力
-            int gjl = attacker.attackPower; 
+            int gjl = attackPower; 
 
             // 计算当前血量的20分之一作为最小伤害
-            int F = attacker.health / 20;
+            int F = health / 20;
 
             // 计算最终的伤害值
             float damage = Mathf.Max(gjl, F);
         
             // 如果血量低于200，伤害减少
-            if (attacker.health < 200)
-                damage = damage * attacker.health / 200.0f;
+            if (health < 200)
+                damage = damage * health / 200.0f;
 
             // 确保伤害最小为1
             damage = Mathf.Max(damage, 1.0f);
@@ -1507,7 +1494,7 @@ namespace BaseClass
             bool isbaoji = false;
 
             // AI进攻时的计算
-            if (attacker.isPlayer)
+            if (isPlayer)
             {
                 // 检查是否触发呐喊攻击效果
                 if (UIBattle.Instance.uiTactic.CheckTacticalState(4,true))
@@ -1515,7 +1502,7 @@ namespace BaseClass
                     damage = damage * 4.0f / 3.0f; // 呐喊增伤效果
                 }
             }
-            else if(!attacker.isPlayer)
+            else
             {
                 // 检查是否触发呐喊攻击效果
                 if (UIBattle.Instance.uiTactic.CheckTacticalState(4,false))
@@ -1569,6 +1556,15 @@ namespace BaseClass
     {
         public GameObject arrowPrefab;
 
+        void Start()
+        {
+            UnityEngine.AddressableAssets.Addressables.LoadAssetAsync<GameObject>("Assets/Prefab/ArrowPrefab.prefab").Completed +=
+                handle =>
+                {
+                    arrowPrefab = handle.Result;
+                };
+            
+        }
         public override bool GetAtkTarget(byte[] directions, out Troop target) 
         {
             target = null;
@@ -1644,7 +1640,7 @@ namespace BaseClass
                 {
                     fireArrow = true;
                 }
-                arrowPrefab = Resources.Load<GameObject>("Prefab/ArrowPrefab");
+                
                 Transform troopRoom = gameObject.transform.parent;
                 Quaternion rotation = Quaternion.AngleAxis(rotationAngle, Vector3.forward);
                 GameObject arrowObject = Instantiate(arrowPrefab, troopRoom);
@@ -1661,21 +1657,21 @@ namespace BaseClass
         }
     
 
-        public override float CalculateDamage(Troop attacker)
+        public override float CalculateDamage()
         {
-            General atkGen = GeneralListCache.GetGeneral(attacker.generalID);
+            General atkGen = GeneralListCache.GetGeneral(generalID);
             // 获取进攻方攻击力和防守方防御力
-            int gjl = attacker.attackPower;
+            int gjl = attackPower;
 
             // 计算当前血量的20分之一作为最小伤害
-            int F = attacker.health / 20;
+            int F = health / 20;
 
             // 计算最终的伤害值
             float damage = Mathf.Max(gjl, F);
 
             // 如果血量低于200，伤害减少
-            if (attacker.health < 200)
-                damage = damage * attacker.health / 200.0f;
+            if (health < 200)
+                damage = damage * health / 200.0f;
 
             // 确保伤害最小为1
             damage = Mathf.Max(damage, 1.0f);
@@ -1684,7 +1680,7 @@ namespace BaseClass
             bool critical = false;
 
             // AI进攻时的计算
-            if (attacker.isPlayer)
+            if (isPlayer)
             {
                 // 检查是否触发特定攻击效果
                 if (UIBattle.Instance.uiTactic.CheckTacticalState(4,true))
@@ -1696,7 +1692,7 @@ namespace BaseClass
                     damage = damage * 5.0f / 3.0f; // 火箭增伤效果
                 }
             }
-            else if (!attacker.isPlayer)
+            else
             {
                 // 检查是否触发特定攻击效果
                 if (UIBattle.Instance.uiTactic.CheckTacticalState(4,false))

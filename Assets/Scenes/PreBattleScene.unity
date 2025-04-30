@@ -505,7 +505,7 @@ MonoBehaviour:
     m_PressedTrigger: Pressed
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
-  m_Interactable: 1
+  m_Interactable: 0
   m_TargetGraphic: {fileID: 0}
   m_FillRect: {fileID: 233233241}
   m_HandleRect: {fileID: 0}
@@ -2961,67 +2961,63 @@ MonoBehaviour:
   hmGeneral:
     generalId: 0
     generalName: 
-    lead: 0
-    political: 0
+    debutYear: 0
+    debutCity: 0
     phase: 0
-    isOffice: 0
+    status: 0
     level: 0
     army: 000000
+    health: 0
+    maxHealth: 100
+    lead: 0
     force: 0
-    generalSoldier: 0
-    maxAttributeValue: 120
-    moral: 0
-    curPhysical: 0
-    maxPhysical: 100
-    IQ: 0
-    debutYears: 0
+    wisdom: 0
+    govern: 0
+    charm: 0
     loyalty: 99
-    debutCity: 0
-    followGeneralId: 0
-    experience: 0
-    weapon: 0
+    maxAttribute: 120
+    arm: 0
     armor: 0
+    soldiers: 0
+    followWho: 0
+    experience: 0
     skills: 00000000000000000000
     leadExp: 0
     forceExp: 0
-    IQExp: 0
-    moralExp: 0
-    politicalExp: 0
-    haveMoney: 0
-    IsDie: 0
-    profile: 
+    wisdomExp: 0
+    charmExp: 0
+    governExp: 0
+    isDie: 0
   aiGeneral:
     generalId: 0
     generalName: 
-    lead: 0
-    political: 0
+    debutYear: 0
+    debutCity: 0
     phase: 0
-    isOffice: 0
+    status: 0
     level: 0
     army: 000000
+    health: 0
+    maxHealth: 100
+    lead: 0
     force: 0
-    generalSoldier: 0
-    maxAttributeValue: 120
-    moral: 0
-    curPhysical: 0
-    maxPhysical: 100
-    IQ: 0
-    debutYears: 0
+    wisdom: 0
+    govern: 0
+    charm: 0
     loyalty: 99
-    debutCity: 0
-    followGeneralId: 0
-    experience: 0
-    weapon: 0
+    maxAttribute: 120
+    arm: 0
     armor: 0
+    soldiers: 0
+    followWho: 0
+    experience: 0
     skills: 00000000000000000000
     leadExp: 0
     forceExp: 0
-    IQExp: 0
-    moralExp: 0
-    politicalExp: 0
-    haveMoney: 0
-    IsDie: 0
-    profile: 
+    wisdomExp: 0
+    charmExp: 0
+    governExp: 0
+    isDie: 0
   battleTerrain: 0
   formationIndex: 0
   isHmDef: 0
@@ -3861,24 +3857,27 @@ MonoBehaviour:
   m_GameObject: {fileID: 1191951944}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1344c3c82d62a2a41a3576d8abb8e3ea, type: 3}
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
-  m_Maskable: 1
+  m_Maskable: 0
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Texture: {fileID: 2800000, guid: 0be828174a537234fafc4b68133daa1c, type: 3}
-  m_UVRect:
-    serializedVersion: 2
-    x: 0
-    y: 0
-    width: 1
-    height: 1
+  m_Sprite: {fileID: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
 --- !u!1 &1213020788
 GameObject:
   m_ObjectHideFlags: 0
@@ -4642,24 +4641,27 @@ MonoBehaviour:
   m_GameObject: {fileID: 1478072027}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1344c3c82d62a2a41a3576d8abb8e3ea, type: 3}
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
-  m_Maskable: 1
+  m_Maskable: 0
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Texture: {fileID: 2800000, guid: 6715eb0dfd1a84b469544679f8a99151, type: 3}
-  m_UVRect:
-    serializedVersion: 2
-    x: 0
-    y: 0
-    width: 1
-    height: 1
+  m_Sprite: {fileID: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
 --- !u!1 &1502461112
 GameObject:
   m_ObjectHideFlags: 0

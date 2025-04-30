@@ -6,32 +6,35 @@ using System.Linq;
 using BaseClass;
 using Newtonsoft.Json;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 using UnityEngine.Networking;
+using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.UI;
 
 namespace DataClass
 {
-    public class DataManagement : MonoBehaviour
+    public class DataManager : MonoBehaviour
     {
-        private static DataManagement _instance;
+        private static DataManager _instance;
 
-        public static DataManagement Instance
+        public static DataManager Instance
         {
             get
             {
                 if (_instance == null)
                 {
-                    _instance = FindAnyObjectByType<DataManagement>();
+                    _instance = FindAnyObjectByType<DataManager>();
                     if (_instance == null)
                     {
-                        _instance = new GameObject("DataManagement").AddComponent<DataManagement>();
+                        _instance = new GameObject("DataManager").AddComponent<DataManager>();
                     }
                 }
                 return _instance;
             }
         }
-        private DataManagement(){}
+        private DataManager(){}
         
-        private static bool isLoadAndInitializeData = false;
+        private static bool isLoadAndInitializeData;
 
         private const int MAX_SAVE_SLOTS = 4;
 
@@ -51,396 +54,109 @@ namespace DataClass
             {
                 Destroy(gameObject);
             }
+            isLoadAndInitializeData = false;
         }
 
-        public void LoadAndInitializeData()
+        // Json文件地址（Addressable路径）
+        private static readonly string CountryDataPath = "Assets/Data/Json/CountryData.json";
+        private static readonly string CityDataPath = "Assets/Data/Json/CityData.json";
+        private static readonly string GeneralDataPath = "Assets/Data/Json/GeneralData.json";
+        private static readonly string WeaponDataPath = "Assets/Data/Json/WeaponData.json";
+        
+        public static IEnumerator LoadAllConfigs(Action<float> onProgress, Action onCompleted)
         {
-            if (!isLoadAndInitializeData)
+            float totalProgress = 0f;
+            int totalFiles = 4;
+            int filesLoaded = 0;
+
+            IEnumerator LoadOne<T>(string address, Action<List<T>> onLoaded)
             {
-                LoadData();
-                Initialize();
-                isLoadAndInitializeData = true;
+                var handle = Addressables.LoadAssetAsync<TextAsset>(address);
+
+                while (!handle.IsDone)
+                {
+                    onProgress?.Invoke((filesLoaded + handle.PercentComplete) / totalFiles);
+                    yield return null;
+                }
+
+                if (handle.Status == AsyncOperationStatus.Succeeded)
+                {
+                    try
+                    {
+                        var list = JsonConvert.DeserializeObject<List<T>>(handle.Result.text);
+                        onLoaded?.Invoke(list);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"解析Json失败: {address} 错误：{ex.Message}");
+                    }
+                }
+                else
+                {
+                    Debug.LogError($"加载Json文件失败: {address}");
+                }
+
+                Addressables.Release(handle);
+                filesLoaded++;
+                onProgress?.Invoke((float)filesLoaded / totalFiles);
             }
 
-        }
+            // 依次加载
+            yield return LoadOne<General>(GeneralDataPath, list =>
+            {
+                GeneralListCache.ClearAllTotalGenerals();
 
-        private void LoadData()
-        {
-            StartCoroutine(ReadGeneralData());
-            StartCoroutine(ReadCityData());
-            StartCoroutine(ReadCountryData());
-            StartCoroutine(ReadWeaponData());
+                foreach (var general in list)
+                {
+                    GeneralListCache.AddGeneral(general);
+                    if (general.debutYear <= GameInfo.years)
+                        GeneralListCache.AddDebutedGeneral(general);
+                    else
+                        GeneralListCache.AddNoDebutGeneral(general);
+                }
+
+                Debug.Log($"成功加载 {list.Count} 位武将数据！");
+            });
+            
+            yield return LoadOne<City>(CityDataPath, list =>
+            {
+                foreach (var item in list)
+                    CityListCache.AddCity(item);
+
+                Debug.Log($"成功加载 {list.Count} 个城市数据！");
+            });
+
+            yield return LoadOne<Country>(CountryDataPath, list =>
+            {
+                foreach (var item in list)
+                    CountryListCache.AddCountry(item);
+
+                Debug.Log($"成功加载 {list.Count} 个势力数据！");
+            });
+
+            yield return LoadOne<Weapon>(WeaponDataPath, list =>
+            {
+                WeaponListCache.ClearAllWeapons();
+
+                foreach (var weapon in list)
+                    WeaponListCache.AddWeapon(weapon);
+
+                Debug.Log($"成功加载 {list.Count} 件武器数据！");
+            });
+
+            // 最后执行后续初始化
+            Initialize();
+
+            Debug.Log("全部配置文件加载完毕！");
+            onCompleted?.Invoke();
         }
 
         private static void Initialize()
         {
-            InitCities();
             InitGeneralsInCities();
-            InitCityPrefects();
-        }
-
-        // 读取势力数据的方法
-        private static IEnumerator ReadCountryData()
-        {
-            string filePath = Path.Combine(Application.streamingAssetsPath, "Json/CountryData.json");
-            string json = string.Empty;
-
-            // 根据平台判断读取方式
-            if (Application.platform == RuntimePlatform.Android)
-            {
-                // 安卓平台使用 UnityWebRequest 读取 StreamingAssets
-                using (UnityWebRequest www = UnityWebRequest.Get(filePath))
-                {
-                    yield return www.SendWebRequest();
-
-                    if (www.result != UnityWebRequest.Result.Success)
-                    {
-                        Debug.LogError($"读取 Android 文件失败: {www.error}");
-                        yield break;
-                    }
-                    else
-                    {
-                        json = www.downloadHandler.text;
-                    }
-                }
-            }
-            else if (Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor)
-            {
-                // Windows 平台直接读取文件
-                if (File.Exists(filePath))
-                {
-                    try
-                    {
-                        json = File.ReadAllText(filePath);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.LogError($"在 Windows 平台读取文件时出错: {ex.Message}");
-                        yield break;
-                    }
-                }
-                else
-                {
-                    Debug.LogError($"文件在 Windows 平台不存在: {filePath}");
-                    yield break;
-                }
-            }
-            else
-            {
-                Debug.LogError("当前平台不支持读取 CountryData.json 文件。");
-                yield break;
-            }
-
-            // 解析 JSON 数据
-            try
-            {
-                List<Country> countryList = JsonConvert.DeserializeObject<List<Country>>(json);
-
-                if (countryList == null || countryList.Count == 0)
-                {
-                    Debug.LogError("读取的势力数据为空。");
-                }
-                else
-                {
-                    foreach (var country in countryList)
-                    {
-                        CountryListCache.AddCountry(country); // 加入缓存
-                    }
-                    Debug.Log($"成功加载了 {CountryListCache.countryDictionary.Count} 个势力数据。");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"JSON 反序列化出错: {ex.Message}");
-            }
+            InitCities();
         }
         
-        // 读取城市数据的方法
-        private static IEnumerator ReadCityData()
-        {
-            string filePath = Path.Combine(Application.streamingAssetsPath, "Json/CityData.json");
-            string json = string.Empty;
-
-            // 根据不同平台选择合适的读取方式
-            if (Application.platform == RuntimePlatform.Android)
-            {
-                // 安卓平台使用 UnityWebRequest 从 APK 包内读取数据
-                using (UnityWebRequest www = UnityWebRequest.Get(filePath))
-                {
-                    yield return www.SendWebRequest();
-
-                    if (www.result != UnityWebRequest.Result.Success)
-                    {
-                        Debug.LogError($"读取 Android 文件失败: {www.error}");
-                        yield break;
-                    }
-                    else
-                    {
-                        json = www.downloadHandler.text;
-                    }
-                }
-            }
-            else if (Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor)
-            {
-                // Windows 平台直接读取文件
-                if (File.Exists(filePath))
-                {
-                    try
-                    {
-                        json = File.ReadAllText(filePath);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.LogError($"在 Windows 平台读取城市数据时出错: {ex.Message}");
-                        yield break;
-                    }
-                }
-                else
-                {
-                    Debug.LogError($"CityData.json 文件不存在于 {filePath}");
-                    yield break;
-                }
-            }
-            else
-            {
-                Debug.LogError("当前平台不支持读取 CityData.json 文件。");
-                yield break;
-            }
-
-            // 解析 JSON 数据
-            try
-            {
-                List<City> cityList = JsonConvert.DeserializeObject<List<City>>(json);
-
-                if (cityList == null || cityList.Count == 0)
-                {
-                    Debug.LogError("城市数据为空或加载失败。");
-                }
-                else
-                {
-                    foreach (var city in cityList)
-                    {
-                        // 将所有城市对象添加到静态字典中
-                        CityListCache.AddCity(city);
-                    }
-
-                    Debug.Log($"成功加载了 {CityListCache.cityDictionary.Count} 座城市数据！");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"JSON 反序列化失败: {ex.Message}");
-            }
-        
-        }
-        
-        // 读取武将数据的方法
-        private static IEnumerator ReadGeneralData()
-        {
-            string filePath = Path.Combine(Application.streamingAssetsPath, "Json/GeneralData.json");
-            string json = string.Empty;
-
-            // 根据平台判断读取方式
-            if (Application.platform == RuntimePlatform.Android)
-            {
-                // 安卓平台使用 UnityWebRequest 从 APK 内读取
-                using (UnityWebRequest www = UnityWebRequest.Get(filePath))
-                {
-                    yield return www.SendWebRequest();
-
-                    if (www.result != UnityWebRequest.Result.Success)
-                    {
-                        Debug.LogError($"读取 Android 文件失败: {www.error}");
-                        yield break;
-                    }
-                    else
-                    {
-                        json = www.downloadHandler.text;
-                    }
-                }
-            }
-            else if (Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor)
-            {
-                // Windows 平台直接从文件系统读取
-                if (File.Exists(filePath))
-                {
-                    try
-                    {
-                        json = File.ReadAllText(filePath);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.LogError($"在 Windows 读取 GeneralData.json 时出错: {ex.Message}");
-                        yield break;
-                    }
-                }
-                else
-                {
-                    Debug.LogError($"GeneralData.json 不存在于 {filePath}");
-                    yield break;
-                }
-            }
-            else
-            {
-                Debug.LogError("当前平台不支持读取 GeneralData.json 文件。");
-                yield break;
-            }
-
-            // 解析 JSON 数据
-            try
-            {
-                List<General> totalGeneralList = JsonConvert.DeserializeObject<List<General>>(json);
-
-                if (totalGeneralList == null || totalGeneralList.Count == 0)
-                {
-                    Debug.LogError("武将数据为空或加载失败。");
-                }
-                else
-                {
-                    // 清空缓存，避免重复加载
-                    GeneralListCache.clearAllGenerals();
-
-                    // 遍历武将列表并根据登场年份分类
-                    foreach (var general in totalGeneralList)
-                    {
-                        GeneralListCache.AddGeneral(general);
-
-                        if (general.debutYears <= GameInfo.years)
-                        {
-                            // 已登场武将
-                            GeneralListCache.AddDebutedGeneral(general);
-                        }
-                        else
-                        {
-                            // 未登场武将
-                            GeneralListCache.AddNoDebutGeneral(general);
-                        }
-                    }
-
-                    // 打印加载结果
-                    Debug.Log($"{GeneralListCache.generalList.Count} 位武将在 {GameInfo.years} 年已登场," +
-                              $"{GeneralListCache.noDebutGeneralList.Count} 位武将尚未登场," +
-                              $"总共成功加载了 {GeneralListCache.GetTotalGeneralNum()} 个武将数据。");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"JSON 反序列化失败: {ex.Message}");
-            }
-        }
-
-
-        // 读取武器数据的方法
-        private static IEnumerator ReadWeaponData()
-        {
-            string filePath = Path.Combine(Application.streamingAssetsPath, "Json/WeaponData.json");
-            string json = string.Empty;
-
-            // 根据平台判断读取方式
-            if (Application.platform == RuntimePlatform.Android)
-            {
-                // 安卓平台使用 UnityWebRequest 从 APK 中读取
-                using (UnityWebRequest www = UnityWebRequest.Get(filePath))
-                {
-                    yield return www.SendWebRequest();
-
-                    if (www.result != UnityWebRequest.Result.Success)
-                    {
-                        Debug.LogError($"读取 Android 文件失败: {www.error}");
-                        yield break;
-                    }
-                    else
-                    {
-                        json = www.downloadHandler.text;
-                    }
-                }
-            }
-            else if (Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor)
-            {
-                // Windows 平台直接读取文件
-                if (File.Exists(filePath))
-                {
-                    try
-                    {
-                        json = File.ReadAllText(filePath);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.LogError($"在 Windows 读取 WeaponData.json 时出错: {ex.Message}");
-                        yield break;
-                    }
-                }
-                else
-                {
-                    Debug.LogError($"WeaponData.json 不存在于 {filePath}");
-                    yield break;
-                }
-            }
-            else
-            {
-                Debug.LogError("当前平台不支持读取 WeaponData.json 文件。");
-                yield break;
-            }
-
-            // 解析 JSON 数据
-            try
-            {
-                List<Weapon> weaponList = JsonConvert.DeserializeObject<List<Weapon>>(json);
-
-                if (weaponList == null || weaponList.Count == 0)
-                {
-                    Debug.LogError("武器数据为空或加载失败。");
-                }
-                else
-                {
-                    // 清空之前缓存，避免重复加载
-                    WeaponListCache.ClearAllWeapons();
-
-                    // 遍历武器列表并存储
-                    foreach (var weapon in weaponList)
-                    {
-                        WeaponListCache.AddWeapon(weapon);
-                    }
-
-                    Debug.Log($"成功加载了 {WeaponListCache.weaponDictionary.Count} 件武器数据！");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"JSON 反序列化失败: {ex.Message}");
-            }
-        }
-
-        //初始化国内城市
-        private static void InitCities()
-        {
-            // 遍历城市列表  
-            foreach (var city in CityListCache.cityDictionary)
-            {
-                // 如果城市属于某个国家（即cityBelongKing不为0）  
-                if (city.Value.cityBelongKing != 0)
-                {
-                    // 遍历国家列表查找对应的国家  
-                    var country = CountryListCache.GetCountryByKingId(city.Value.cityBelongKing);
-                    if (country != null)
-                    {
-                        // 检查是否已经包含该城市的ID，避免重复添加  
-                        if (!country.cityIDs.Contains(city.Key))
-                        {
-                            // 将城市添加到对应国家的Cities列表中  
-                            country.cityIDs.Add(city.Key);
-                        }
-                        else
-                        {
-                            Debug.LogWarning("城池" + city.Value.cityName + "已归属于势力" + country.KingName() + "跳过添加。");
-                        }
-                    }
-                }
-            }
-            Debug.Log($"当今天下共有{CityListCache.cityDictionary.Count}座城池");
-
-            // 此时，每个国家的Cities列表都应该填充了正确的城市，且不会有重复项  
-        }
 
         // 初始化第一年武将在城市中的状态
         private static void InitGeneralsInCities()
@@ -452,13 +168,16 @@ namespace DataClass
             {          
                 if (general.generalId != 0)
                 {   // 获取武将的登场城市ID
+                    short debutYear = general.debutYear;
                     byte debutCityId = general.debutCity;
+                    if (debutYear > GameInfo.years || debutCityId == 0)
+                        continue;
                     // 根据城市ID查找对应城市
                     City city = CityListCache.GetCityByCityId(debutCityId);
 
                     if (city != null)
                     { 
-                        if (general.isOffice == 1)
+                        if (general.status == 1)
                         {     // 将武将添加到有职务的武将列表
                             city.AddOfficeGeneralId(general.generalId);
                             addoffice++; 
@@ -480,32 +199,44 @@ namespace DataClass
             Debug.Log($"共有{addoffice}位武将已经入城，其中{addnotfound}未做官。");
         }
 
-
-        // 遍历所有城市，并对归属于某个国家的城市执行任命操作
-        private static void InitCityPrefects()
+        //初始化国内城市
+        private static void InitCities()
         {
-            // 从ID为1的城市开始遍历，直到城市总数
-            for (byte cityId = 1; cityId < CityListCache.CITY_NUM; cityId = (byte)(cityId + 1))
+            // 遍历城市列表  
+            foreach (var city in CityListCache.cityDictionary)
             {
-                // 根据城市ID获取城市对象
-                City city = CityListCache.GetCityByCityId(cityId);
-
-                // 判断城市是否属于某个国家（即 cityBelongKing > 0）
-                if (city != null && city.cityBelongKing > 0)
+                // 如果城市非空
+                if (city.Value != null)
                 {
-                    // 为城市任命太守
-                    city.AppointmentPrefect();
-                    //Debug.Log($"城市 {city.cityName} 属于君主 {city.cityBelongKing}，已任命太守。");
-                }
-                else
-                {
-                    // 如果城市不存在或没有归属国家，输出警告信息
-                    Debug.Log($"城池 {city.cityName} 是一座空城。");
+                    if (city.Value.ownerID > 0)
+                    {
+                        // 遍历国家列表查找对应的国家  
+                        var country = CountryListCache.GetCountryByKingId(city.Value.ownerID);
+                        if (country != null)
+                        {
+                            // 检查是否已经包含该城市的ID，避免重复添加  
+                            if (!country.cityIDs.Contains(city.Key))
+                            {
+                                // 为城市任命太守
+                                city.Value.AutoAppointPrefect();
+                                // 将城市添加到对应国家的Cities列表中  
+                                country.cityIDs.Add(city.Key);
+                            }
+                            else
+                            {
+                                Debug.LogWarning("城池" + city.Value.cityName + "已归属于势力" + country.KingName() + "跳过添加。");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Debug.Log($"城池 {city.Value.cityName} 是一座空城。");
+                    }
                 }
             }
+            Debug.Log($"当今天下共有{CityListCache.cityDictionary.Count}座城池");
 
-            // 任命所有符合条件的城市太守操作完成
-            Debug.Log("诸侯们已在各自城池任命太守。");
+            // 此时，每个国家的Cities列表都应该填充了正确的城市，且不会有重复项  
         }
 
 
@@ -538,9 +269,7 @@ namespace DataClass
 
         public static void GetRecordInfo()
         {
-            // 获取存档文件路径
             GetSaveFilePaths();
-
             for (int i = 0; i < MAX_SAVE_SLOTS; i++)
             {
                 try
@@ -560,13 +289,13 @@ namespace DataClass
                         // 反序列化 JSON 数据
                         SaveData saveData = JsonConvert.DeserializeObject<SaveData>(jsonData);
 
-                        if (saveData != null && !string.IsNullOrEmpty(saveData.recordInfo))
+                        if (saveData != null && !string.IsNullOrEmpty(saveData.kingName)) // 存储记录信息
                         {
-                            GameInfo.recordInfo[i] = saveData.recordInfo; // 存储记录信息
+                            GameInfo.recordInfo[i] = $"{saveData.kingName}  {saveData.years}年{saveData.month}月";
                         }
                         else
                         {
-                            Debug.LogWarning($"存档 {i} 数据无效或 recordInfo 为空。");
+                            Debug.LogWarning($"存档 {i} 数据无效或君主名为空。");
                             GameInfo.recordInfo[i] = "存档数据无效";
                         }
                     }
@@ -590,41 +319,21 @@ namespace DataClass
         public static void SaveGame(int index)
         {
             GetSaveFilePaths();
-            SaveData saveData = new SaveData();
-
-            // 填充游戏数据
-            saveData.recordInfo = GeneralListCache.GetGeneral(CountryListCache.GetCountryByCountryId(GameInfo.playerCountryId).countryKingId).generalName +
-                                  $"({GameInfo.years}年{GameInfo.month}月)";
-            saveData.playerCountryId = GameInfo.playerCountryId;
-            saveData.doCityId = GameInfo.doCityId;
-            saveData.playerOrderNum = GameInfo.playerOrderNum;
-            saveData.month = GameInfo.month;
-            saveData.years = GameInfo.years;
-            saveData.difficult = GameInfo.difficult;
-            saveData.attackCount = GameInfo.attackCount;
-            saveData.countrySequence = CountryListCache.countrySequence;
-        
-            // 添加将领信息
-            saveData.generalList = new List<General>();
-            foreach (var pair in GeneralListCache.generalDictionary)
-            {
-                saveData.generalList.Add(pair.Value);
-            }
-
-            // 添加城市信息
-            saveData.cityList = new List<City>();
-            foreach (var pair in CityListCache.cityDictionary)
-            {
-                saveData.cityList.Add(pair.Value);
-            }
-
-            // 添加国家信息
-            saveData.countryList = new List<Country>();
-            foreach (var pair in CountryListCache.countryDictionary)
-            {
-                saveData.countryList.Add(pair.Value);
-            }
-
+            string saveTitle = $"{GeneralListCache.GetGeneral(CountryListCache.GetCountryByCountryId(GameInfo.playerCountryId).countryKingId).generalName}  {GameInfo.years}年{GameInfo.month}月";
+            SaveData saveData = new SaveData(saveTitle,
+                                             GameInfo.years,
+                                             GameInfo.month,
+                                             GameInfo.difficult,
+                                             GameInfo.playerCountryId,
+                                             GameInfo.playerOrderNum,
+                                             GameInfo.doCityId,
+                                             GameInfo.attackCount,
+                                             CountryListCache.countrySequence,
+                                             WeaponListCache.weaponDictionary,
+                                             GeneralListCache.generalDictionary,
+                                             CityListCache.cityDictionary,
+                                             CountryListCache.countryDictionary);
+            
             // 将游戏数据序列化为JSON
             string jsonData = JsonConvert.SerializeObject(saveData, Formatting.Indented);
 
@@ -648,7 +357,7 @@ namespace DataClass
         /// </summary>
         /// <param name="index"></param>
         /// <returns></returns>
-        public void LoadGame(int index)
+        public static void LoadGame(int index)
         {
             GetSaveFilePaths();
 
@@ -691,21 +400,26 @@ namespace DataClass
             }
 
             // 还原游戏数据
-            GameInfo.playerCountryId = saveData.playerCountryId;
-            GameInfo.doCityId = saveData.doCityId;
-            GameInfo.playerOrderNum = saveData.playerOrderNum;
+            
+            
             GameInfo.month = saveData.month;
             GameInfo.years = saveData.years;
             GameInfo.difficult = saveData.difficult;
+            GameInfo.playerCountryId = saveData.playerCountryId;
+            GameInfo.playerOrderNum = saveData.playerOrderNum;
+            GameInfo.doCityId = saveData.doCityId;
             GameInfo.attackCount = saveData.attackCount;
             CountryListCache.countrySequence = saveData.countrySequence;
-
+            
+            WeaponListCache.ClearAllWeapons();
+            WeaponListCache.weaponDictionary = saveData.weaponDictionary;
+            
             // 还原将领信息
-            GeneralListCache.ClearAllTotalGenerals(); // 假设有一个方法清空当前将领数据
-            foreach (var generalData in saveData.generalList)
+            GeneralListCache.ClearAllTotalGenerals();
+            GeneralListCache.generalDictionary = saveData.generalDictionary;
+            foreach (var generalData in saveData.generalDictionary.Values)
             {
-                GeneralListCache.AddGeneral(generalData);
-                if (generalData.debutYears <= GameInfo.years)
+                if (generalData.debutYear <= GameInfo.years)
                 {
                     // debutYears 小于等于当前年份的武将加入 generals
                     GeneralListCache.AddDebutedGeneral(generalData);
@@ -717,26 +431,14 @@ namespace DataClass
 
                 }
             }
+            
+            CityListCache.ClearAllCities();
+            CityListCache.cityDictionary = saveData.cityDictionary;
+            
+            CountryListCache.ClearAllCountries();
+            CountryListCache.countryDictionary = saveData.countryDictionary;
 
-       
-
-            // 还原城市信息
-            CityListCache.ClearAllCities(); // 假设有一个方法清空当前城市数据
-            foreach (var cityData in saveData.cityList)
-            {
-                CityListCache.AddCity(cityData); // 假设有一个方法添加城市
-            }
-
-            // 还原国家信息
-            CountryListCache.ClearAllCountries(); // 假设有一个方法清空当前国家数据
-            foreach (var countryData in saveData.countryList)
-            {
-                CountryListCache.AddCountry(countryData); // 假设有一个方法添加国家
-            }
-            InitCities();
-            InitGeneralsInCities();
-            InitCityPrefects();
-            StartCoroutine(ReadWeaponData());
+            GameInfo.PlayingState = GameState.PlayerTurn;
             GC.Collect();
             Debug.Log("游戏成功加载!");
         }
@@ -983,7 +685,26 @@ namespace DataClass
             onComplete?.Invoke(introduction);
         }
         
-        
+        public static void ReadMapData()
+        {
+            foreach (var cityID in CityListCache.cityDictionary.Keys)
+            {
+                Instance.StartCoroutine(DataManager.LoadMapAsync(cityID, (map) =>
+                {
+                    // 读取地图数据
+                    if (map != null)
+                    {
+                        Debug.Log(cityID +"地图加载成功！");
+                        // 使用 warMap 进行逻辑处理
+                        DataManager.maps.TryAdd(cityID, map);
+                    }
+                    else
+                    {
+                        Debug.LogError(cityID +"地图加载失败！");
+                    }
+                }));
+            }
+        }
         
         /// <summary>
         /// 加载地图数据并返回 WarMap。
@@ -1088,29 +809,6 @@ namespace DataClass
                 csvFileNames.Add("hc");
                 csvFileNames.Add("hc0");
                 Debug.Log("当前为安卓平台");
-                /*// 安卓平台通过 UnityWebRequest 读取文件列表（需打包时生成 file_list.txt）
-                string fileListPath = Path.Combine(formationPath, "file_list.txt");
-                using (UnityWebRequest request = UnityWebRequest.Get(fileListPath))
-                {
-                    yield return request.SendWebRequest();
-
-                    if (request.result == UnityWebRequest.Result.Success)
-                    {
-                        string[] files = request.downloadHandler.text.Split('\n');
-                        foreach (string file in files)
-                        {
-                            if (file.EndsWith(".csv"))
-                            {
-                                csvFileNames.Add(file.Trim());
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Debug.LogError($"无法加载文件列表: {fileListPath}, 错误: {request.error}");
-                        yield break;
-                    }
-                }*/
             }
             else
             {
@@ -1243,7 +941,103 @@ namespace DataClass
         }
         
 
+        // 加载 Sprite 并赋值给 UI Image
+        public static void LoadSpriteToImage(string address, Image targetImage, Action<Sprite> onLoaded = null)
+        {
+            Addressables.LoadAssetAsync<Sprite>(address).Completed += handle =>
+            {
+                if (handle.Status == AsyncOperationStatus.Succeeded)
+                {
+                    targetImage.sprite = handle.Result;
+                    onLoaded?.Invoke(handle.Result);
+                }
+                else
+                {
+                    Debug.LogError($"加载 Sprite 失败: {address}");
+                }
+            };
+        }
 
+        // 加载 AudioClip 并播放
+        public static void LoadAudioAndPlay(string address, AudioSource audioSource, Action<AudioClip> onLoaded = null)
+        {
+            Addressables.LoadAssetAsync<AudioClip>(address).Completed += handle =>
+            {
+                if (handle.Status == AsyncOperationStatus.Succeeded)
+                {
+                    audioSource.clip = handle.Result;
+                    audioSource.Play();
+                    onLoaded?.Invoke(handle.Result);
+                }
+                else
+                {
+                    Debug.LogError($"加载音频失败: {address}");
+                }
+            };
+        }
+
+        // 加载并实例化一个 Prefab（带可选回调）
+        public static void LoadAndInstantiatePrefab(string address, Vector3 position, Quaternion rotation, Transform parent = null, Action<GameObject> onInstantiated = null)
+        {
+            Addressables.InstantiateAsync(address, position, rotation, parent).Completed += handle =>
+            {
+                if (handle.Status == AsyncOperationStatus.Succeeded)
+                {
+                    onInstantiated?.Invoke(handle.Result);
+                }
+                else
+                {
+                    Debug.LogError($"实例化预制体失败: {address}");
+                }
+            };
+        }
+
+        // 加载 TextAsset（用于 JSON 配置）
+        public static void LoadJson<T>(string address, Action<T> onLoaded) where T : class
+        {
+            Addressables.LoadAssetAsync<TextAsset>(address).Completed += handle =>
+            {
+                if (handle.Status == AsyncOperationStatus.Succeeded)
+                {
+                    string json = handle.Result.text;
+                    T obj = JsonUtility.FromJson<T>(json);
+                    onLoaded?.Invoke(obj);
+                }
+                else
+                {
+                    Debug.LogError($"加载 JSON 失败: {address}");
+                }
+            };
+        }
+
+        // 通用资源加载（Sprite、Font、Material、ScriptableObject等）
+        public static void LoadAsset<T>(string address, Action<T> onLoaded) where T : UnityEngine.Object
+        {
+            Addressables.LoadAssetAsync<T>(address).Completed += handle =>
+            {
+                if (handle.Status == AsyncOperationStatus.Succeeded)
+                {
+                    onLoaded?.Invoke(handle.Result);
+                }
+                else
+                {
+                    Debug.LogError($"加载资源失败: {address}");
+                }
+            };
+        }
+
+        // 主动释放资源（非实例化资源）
+        public static void Release<T>(T asset) where T : UnityEngine.Object
+        {
+            Addressables.Release(asset);
+        }
+
+        // 主动释放实例化的 Prefab
+        public static void ReleaseInstance(GameObject instance)
+        {
+            Addressables.ReleaseInstance(instance);
+        }
+    
 
 
 

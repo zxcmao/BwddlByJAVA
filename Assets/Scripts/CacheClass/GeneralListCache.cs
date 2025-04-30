@@ -45,7 +45,7 @@ public class GeneralListCache
         for (int i = 0; i < noDebutGeneralList.Count; i++)
         {
             General general = noDebutGeneralList[i];
-            if (general.debutYears <= years) // 如果该将领的登场年份小于或等于当前年份
+            if (general.debutYear <= years) // 如果该将领的登场年份小于或等于当前年份
             {
                 // 移除未登场将领列表中的当前将领，并将其加入已登场将领列表
                 noDebutGeneralList.RemoveAt(i);
@@ -54,15 +54,15 @@ public class GeneralListCache
                 noDebutGeneralList.Remove(general);
 
                 byte cityId = general.debutCity; // 获取将领的登场城市ID
-                if (general.followGeneralId != 0) // 如果该将领跟随其他将领
+                if (general.followWho != 0) // 如果该将领跟随其他将领
                 {
-                    short followCityId = general.followGeneralId;
+                    short followCityId = general.followWho;
                     General followGeneral = GetGeneral(followCityId); // 获取跟随的将领
                     if (followGeneral != null)
                     {
                         cityId = followGeneral.debutCity; // 更新城市ID为跟随将领的登场城市
                         City city = CityListCache.GetCityByCityId(cityId);
-                        if (followGeneral.isOffice == 1) // 如果跟随的将领是官员
+                        if (followGeneral.status == 1) // 如果跟随的将领是官员
                         {
                             if (city.GetCityOfficerNum() >= 10) // 如果城市官员数量已满
                             {
@@ -236,7 +236,7 @@ public class GeneralListCache
             maxGeneralId = general.generalId; // 更新最大武将ID
         }
 
-        if (general.IsDie == false)
+        if (general.isDie == false)
         {
             generalList.Add(general); // 添加到武将列表
         }
@@ -273,7 +273,7 @@ public class GeneralListCache
         city.RemoveReservedGeneralId(generalId);
 
         // 将武将是否在职设置为0（假定0表示不在职）
-        general.isOffice = 0;
+        general.status = 0;
 
         // 通过君主ID获取势力对象
         Country country = CountryListCache.GetCountryByKingId(generalId);
@@ -299,7 +299,7 @@ public class GeneralListCache
                 else
                 {
                     // 设置势力灭亡提示为玩家失败
-                    GameInfo.countryDieTips = 3;
+                    GameInfo.countryDieTips = 4;
 
                     // 设置显示信息为势力灭亡
                     GameInfo.ShowInfo = general.generalName + " 势力灭亡了!";
@@ -314,7 +314,7 @@ public class GeneralListCache
                     if (country.IsEndangered() && WarManager.Instance.curWarCityId == country.cityIDs[0])
                     {
                         // 设置势力灭亡提示为AI失败
-                        GameInfo.countryDieTips = 4;
+                        GameInfo.countryDieTips = 3;
 
                         // 设置显示信息为势力灭亡
                         GameInfo.ShowInfo = general.generalName + " 势力灭亡了!";
@@ -334,7 +334,7 @@ public class GeneralListCache
                 else
                 {
                     // 设置势力灭亡提示为AI失败
-                    GameInfo.countryDieTips = 4;
+                    GameInfo.countryDieTips = 3;
 
                     // 设置显示信息为势力灭亡
                     GameInfo.ShowInfo = general.generalName + " 势力灭亡了!";
@@ -346,7 +346,7 @@ public class GeneralListCache
             // 如果不是君主，则输出普通武将死亡的消息
             Debug.Log("武将：" + $"{general.generalName}" + "死亡了!!");
         }
-        general.IsDie = true;
+        general.isDie = true;
     }
 
     
@@ -359,7 +359,7 @@ public class GeneralListCache
         ratio = Mathf.Clamp(ratio, 0.5f, 1.5f);
         // 计算可获取的经验值
         short exp = (short)(int)(totalExp * ratio);
-        atkGen.Addexperience(exp / 3); // 增加经验
+        atkGen.AddExperience(exp / 3); // 增加经验
     }
     
     // AI之间对战时增加经验
@@ -374,7 +374,7 @@ public class GeneralListCache
         var leadExp = 0;
 
         // 如果攻击将领的智力比防守将领高出20，智力经验加成
-        if (atkGen.IQ > defGen.IQ + 20)
+        if (atkGen.wisdom > defGen.wisdom + 20)
             IQExp = (int)(exp * 0.3F);
 
         // 剩余经验分配给领导力
@@ -462,7 +462,7 @@ public class GeneralListCache
         {
             if (id == general.generalId)
             {
-                return debutCity.cityBelongKing; // 返回该城市所属的君主ID
+                return debutCity.ownerID; // 返回该城市所属的君主ID
             }
         }
 
@@ -478,15 +478,15 @@ public class GeneralListCache
             {
                 if (id == general.generalId)
                 {
-                    kingId = city.cityBelongKing; // 找到该城市所属的君主ID
+                    kingId = city.ownerID; // 找到该城市所属的君主ID
                     inCount++; // 计数
                     cityInfoString += city.cityName; // 记录城市名称
 
                     // 如果将领初次登场城市与当前城市不一致，则更新信息
-                    if (general.debutCity != city.cityId && inCount > 1)
+                    if (general.debutCity != city.cityID && inCount > 1)
                     {
                         city.RemoveOfficerId(general.generalId); // 从旧城市移除将领任职信息
-                        general.debutCity = city.cityId; // 更新将领的初次登场城市
+                        general.debutCity = city.cityID; // 更新将领的初次登场城市
                     }
                 }
             }
@@ -551,7 +551,7 @@ public class GeneralListCache
             
         }
 
-        if (Random.Range(0, 120) < doGeneral.IQ - beGeneral.IQ)
+        if (Random.Range(0, 120) < doGeneral.wisdom - beGeneral.wisdom)
         {
             i = 1 + Random.Range(0, 3); 
         }
@@ -562,7 +562,7 @@ public class GeneralListCache
         if (i > 0)
         {
             Debug.Log($"{doGeneral.generalName}离间了{beGeneral.generalName}忠诚度降低:{i}");
-            beGeneral.DecreaseLoyalty((byte)i); // 降低忠诚度
+            beGeneral.SubLoyalty(i); // 降低忠诚度
             doGeneral.AddMoralExp(Random.Range(5, 15)); // 增加将领的道德经验
             doGeneral.AddIqExp(Random.Range(2, 10)); // 增加将领的智力经验
             return true;
@@ -630,7 +630,7 @@ public class GeneralListCache
         City beCity = CityListCache.GetCityByCityId(beCityId); // 获取被招揽者所在城市
         if (CanBribe(doGeneral, beGeneral))
         {
-            beGeneral.SetTraitorLoyalty(); // 随机设置将领忠诚度
+            beGeneral.SetLoyalty(Random.Range(40, 75)); // 随机设置将领忠诚度
             doGeneral.AddMoralExp(Random.Range(10, 25)); // 增加将领的道德经验
             doGeneral.AddIqExp(Random.Range(4, 10)); // 增加将领的智力经验
             beCity.RemoveOfficerId(beGenId); // 从城市中移除将领
@@ -653,7 +653,7 @@ public class GeneralListCache
     {
         General goGeneral = GeneralListCache.GetGeneral(gohireId);  // 获取雇佣将领
         City city = CityListCache.GetCityByCityId(goGeneral.debutCity);  // 获取该将领所在城市
-        General kingGeneral = GeneralListCache.GetGeneral(city.cityBelongKing);  // 获取该城市所属的国王
+        General kingGeneral = GeneralListCache.GetGeneral(city.ownerID);  // 获取该城市所属的国王
         General beGeneral = GeneralListCache.GetGeneral(behireId);  // 获取被雇佣的将领
 
         // 如果被雇佣的将领不存在，返回false

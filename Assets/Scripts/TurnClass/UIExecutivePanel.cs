@@ -37,7 +37,7 @@ namespace TurnClass
         [SerializeField] TextMeshProUGUI Info1;//显示内政的信息
         [SerializeField] TextMeshProUGUI Info2;
         [SerializeField] TextMeshProUGUI SelectName;
-        [SerializeField] RawImage HeadImage;
+        [SerializeField] Image HeadImage;
         [SerializeField] TextMeshProUGUI UseInfo;
         [SerializeField] Toggle useTreasure;
         [SerializeField] Toggle useMoney;
@@ -82,7 +82,9 @@ namespace TurnClass
     
         public void StartExecutivePanel()
         {
+            confirmButton.GetComponent<Button>().onClick.RemoveAllListeners();
             confirmButton.SetActive(false);
+            cancelButton.GetComponent<Button>().onClick.RemoveAllListeners();
             cancelButton.SetActive(false);
             title.text = TextLibrary.GetTaskDescription(Task);
             City city = CityListCache.GetCityByCityId(doCityId); // 获取目标城市对象
@@ -92,14 +94,20 @@ namespace TurnClass
                 case TaskType.Move:
                     Move();
                     break;
+                case TaskType.MoveDeny:
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, "无城可前往"));
+                    break;
                 case TaskType.OverMove:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[0][1]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[0][1]));
                     break;
                 case TaskType.OverAttack:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[0][3]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[0][3]));
                     break;
                 case TaskType.Attack:
                     AttackAsset();
+                    break;
+                case TaskType.AttackDeny:
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, "无城可攻打"));
                     break;
                 case TaskType.Conscript:
                     conscriptPanel.Conscript(doCityId);
@@ -107,15 +115,18 @@ namespace TurnClass
                 case TaskType.Transport:
                     Transport();
                     break;
+                case TaskType.TransportDeny:
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, "无城可输送"));
+                    break;
                 case TaskType.Search:
                     SubPlayerOrder();
                     StartCoroutine(uiTips.ShowTaskTips(city.Search(doGeneralIds[0]), TaskType.Search));
                     break;
                 case TaskType.OverEmploy:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[2][0]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[2][0]));
                     break;
                 case TaskType.EmployNothing:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[2][1]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[2][1]));
                     break;
                 case TaskType.Employ:
                     SubPlayerOrder();
@@ -129,35 +140,35 @@ namespace TurnClass
                     }
                     break;
                 case TaskType.RewardDeny:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[2][4]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[2][4]));
                     break;
                 case TaskType.Reward:
                     RewardPanel();
                     break;
                 case TaskType.AppointDeny:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[2][7]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[2][7]));
                     break;
                 case TaskType.Appoint:
-                    city.AppointmentPrefect(doGeneralIds[0]);
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[2][6]));
+                    city.AppointPrefect(doGeneralIds[0]);
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[2][6]));
                     break;
                 case TaskType.Lack:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[1][2]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[1][2]));
                     break;
                 case TaskType.OverReclaim:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[3][4]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[3][4]));
                     break;
                 case TaskType.OverMercantile:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[3][5]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[3][5]));
                     break;
                 case TaskType.OverTame:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[3][6]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[3][6]));
                     break;
                 case TaskType.OverPatrol:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[3][7]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[3][7]));
                     break;
                 case TaskType.OverTruce:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[1][3]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[1][3]));
                     break;
                 case TaskType.TruceSelect:
                     TrucePanel();
@@ -193,13 +204,13 @@ namespace TurnClass
                     }
                     break;
                 case TaskType.LackShop:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[7][0]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[7][0]));
                     break;
                 case TaskType.LackSmithy:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[7][1]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[7][1]));
                     break;
                 case TaskType.LackSchool:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[7][2]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[7][2]));
                     break;
                 case TaskType.Shop:
                     EnableCancelButton();
@@ -212,7 +223,7 @@ namespace TurnClass
                     smithyPanel.Smithy(doCityId, city.GetMoney(), false , doGeneralIds[0]);
                     break;
                 case TaskType.SchoolDeny:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[7][6]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[7][6]));
                     break;
                 case TaskType.School:
                     SubPlayerOrder();
@@ -220,14 +231,14 @@ namespace TurnClass
                     StartCoroutine(uiTips.ShowHeadTips(doGeneralIds[0], DoThingsResultInfo[4][3]));
                     break;
                 case TaskType.LackHospital:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[7][3]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[7][3]));
                     break;
                 case TaskType.HospitalDeny:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[7][7]));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[7][7]));
                     break;
                 case TaskType.Hospital:
                     SubPlayerOrder();
-                    GeneralListCache.GetGeneral(doGeneralIds[0]).SetCurPhysical(100);
+                    GeneralListCache.GetGeneral(doGeneralIds[0]).SetHP(100);
                     city.SubGold(100);  // 从城市的金钱中扣除 100
                     StartCoroutine(uiTips.ShowHeadTips(doGeneralIds[0], DoThingsResultInfo[4][4]));
                     break;
@@ -241,6 +252,10 @@ namespace TurnClass
                 case TaskType.Load:
                     recordPanel.RecordIndex += LoadRecord;
                     recordPanel.Load();
+                    break;
+                case TaskType.Inherit:
+                    SubPlayerOrder();
+                    StartCoroutine(uiTips.ShowHeadTips(doGeneralIds[0], "先主未竟之业，吾当以血践之!"));
                     break;
                 default:
                     // 初始化结果面板为隐藏状态
@@ -256,17 +271,18 @@ namespace TurnClass
 
         void ToggleValueChanged(bool isOn)
         {
-            UseInfo.text = "";
             if (useTreasure.isOn)
             {
                 UseInfo.text = "赏赐宝物一件";
                 confirmButton.SetActive(true);
+                confirmButton.GetComponent<Button>().onClick.RemoveAllListeners();
                 confirmButton.GetComponent<Button>().onClick.AddListener(OnConfirmButtonClicked);
             }
             else if (useMoney.isOn)
             {
                 UseInfo.text = "赏赐黄金百两";
                 confirmButton.SetActive(true);
+                confirmButton.GetComponent<Button>().onClick.RemoveAllListeners();
                 confirmButton.GetComponent<Button>().onClick.AddListener(OnConfirmButtonClicked);
             }
         }
@@ -283,6 +299,7 @@ namespace TurnClass
         /// </summary>
         void OnConfirmButtonClicked()
         {
+            DataManager.Release(HeadImage.sprite);
             City city = CityListCache.GetCityByCityId(doCityId);
             confirmButton.SetActive(false);
             cancelButton.SetActive(false);
@@ -292,7 +309,7 @@ namespace TurnClass
                     StartCoroutine(ConfirmWar());
                     break;
                 case TaskType.Transport:
-                    if (city.GetFood() >= short.Parse(transportFood.text) && city.GetMoney() >= short.Parse(transportMoney.text) && city.treasureNum >= byte.Parse(transportTreasure.text))
+                    if (city.GetFood() >= short.Parse(transportFood.text) && city.GetMoney() >= short.Parse(transportMoney.text) && city.GetTreasureNum() >= byte.Parse(transportTreasure.text))
                     {
                         CityListCache.TransportBetweenCitys(doCityId, targetCityId, short.Parse(transportFood.text), short.Parse(transportMoney.text), byte.Parse(transportTreasure.text));
                         bool hasQiangYun = false;//特技抢运
@@ -309,7 +326,7 @@ namespace TurnClass
                         {
                             SubPlayerOrder();
                         }
-                        StartCoroutine(uiTips.ShowHeadTips(city.prefectId, DoThingsResultInfo[0][0]));
+                        StartCoroutine(uiTips.ShowHeadTips(city.prefectID, DoThingsResultInfo[0][0]));
                     }
                     break;
                 case TaskType.Reward:
@@ -324,11 +341,11 @@ namespace TurnClass
                     InteriorResult(doGeneralIds[0], Task);
                     break;
                 case TaskType.TruceSelect:
-                    optionalGeneralIds = city.GetOfficerIds().ToList();
+                    SetGeneralOption(city.GetOfficerIds());
                     SceneManager.LoadScene("SelectGeneral");
                     break;
                 default:
-                    StartCoroutine(uiTips.ShowHeadTips(city.prefectId, _useGold.ToString()));
+                    StartCoroutine(uiTips.ShowHeadTips(city.prefectID, _useGold.ToString()));
                     break;
             }
         
@@ -338,15 +355,19 @@ namespace TurnClass
         /// </summary>
         public void GoToNextScene()
         {
+            if (HeadImage.sprite != null)
+                DataManager.Release(HeadImage.sprite);
+            
             if (playerOrderNum > 0)
             {
                 SceneManager.LoadScene("CityScene");
+                Debug.Log("返回城市场景");
             }
             else
             {
                 SceneManager.LoadScene("GlobalScene");
+                Debug.Log("返回地图场景");
             }
-            Debug.Log("返回城市场景");
         }
         
         
@@ -359,7 +380,7 @@ namespace TurnClass
             {
                 City tarCity = CityListCache.GetCityByCityId(targetCityId);
                 Debug.Log($"君主:" + string.Join(", ", targetGeneralIds) +"从"+ doCityId +"前往"+targetCityId);
-                StartCoroutine(uiTips.ShowHeadTips(tarCity.cityBelongKing, DoThingsResultInfo[0][0]));
+                StartCoroutine(uiTips.ShowHeadTips(tarCity.ownerID, DoThingsResultInfo[0][0]));
             }
             else
             {
@@ -398,9 +419,7 @@ namespace TurnClass
                     confirmButton.SetActive(true);
                     confirmButton.GetComponent<Button>().onClick.RemoveAllListeners();
                     confirmButton.GetComponent<Button>().onClick.AddListener(OnConfirmButtonClicked);
-                    cancelButton.SetActive(true);
-                    cancelButton.GetComponent<Button>().onClick.RemoveAllListeners();
-                    cancelButton.GetComponent<Button>().onClick.AddListener(GoToNextScene);
+                    EnableCancelButton();
                 }
             }
 
@@ -425,15 +444,14 @@ namespace TurnClass
                     confirmButton.SetActive(true);
                     confirmButton.GetComponent<Button>().onClick.RemoveAllListeners();
                     confirmButton.GetComponent<Button>().onClick.AddListener(OnConfirmButtonClicked);
-                    cancelButton.SetActive(true);
-                    cancelButton.GetComponent<Button>().onClick.RemoveAllListeners();
-                    cancelButton.GetComponent<Button>().onClick.AddListener(GoToNextScene);
+                    EnableCancelButton();
                 }
             }
         }
 
         IEnumerator ConfirmWar()
         {
+            attackCount++;
             attackPanel.SetActive(false);
             short food = short.Parse(setFood.text);
             short money = short.Parse(setMoney.text);
@@ -443,11 +461,15 @@ namespace TurnClass
             City city = CityListCache.GetCityByCityId(doCityId);
             city.SubFood(food);
             city.SubGold(money);
+            foreach (var id in targetGeneralIds)
+            {
+                city.RemoveOfficerId(id);// 移除进攻将军
+            }
             yield return uiTips.ShowHeadTips(targetGeneralIds[0], DoThingsResultInfo[0][2]);
             //玩家发起战争数据传递
             PlayingState = GameState.PlayervsAI;
             Task = TaskType.None;
-            SceneManager.LoadScene("WarScene");
+            SceneManager.LoadSceneAsync("WarScene");
         }
 
 
@@ -465,7 +487,7 @@ namespace TurnClass
             transportMoney.onValueChanged.AddListener(GoldInputFieldSubmit);
             transportTreasure.onValueChanged.AddListener(TreasureInputFieldSubmit);
 
-            transportInfo.text = $"粮食:{city.GetFood()} 金钱:{city.GetMoney()} 宝物:{city.treasureNum}";
+            transportInfo.text = $"粮食:{city.GetFood()} 金钱:{city.GetMoney()} 宝物:{city.GetTreasureNum()}";
 
             void FoodInputFieldSubmit(string value)
             {
@@ -486,9 +508,9 @@ namespace TurnClass
                         Debug.Log($"{city.cityName}将消耗{intValue}粮食");
                     }
                     confirmButton.SetActive(true);
-                    cancelButton.SetActive(true);
                     confirmButton.GetComponent<Button>().onClick.AddListener(OnConfirmButtonClicked);
-                    cancelButton.GetComponent<Button>().onClick.AddListener(GoToNextScene);
+                    
+                    EnableCancelButton();
                 }
             }
 
@@ -511,9 +533,8 @@ namespace TurnClass
                         Debug.Log($"{city.cityName}将消耗{intValue}金钱");
                     }
                     confirmButton.SetActive(true);
-                    cancelButton.SetActive(true);
                     confirmButton.GetComponent<Button>().onClick.AddListener(OnConfirmButtonClicked);
-                    cancelButton.GetComponent<Button>().onClick.AddListener(GoToNextScene);
+                    EnableCancelButton();
                 }
             }
 
@@ -526,19 +547,18 @@ namespace TurnClass
                     {
                         transportTreasure.text = "0"; // 设置为默认值
                     }
-                    else if (intValue > city.treasureNum)
+                    else if (intValue > city.GetTreasureNum())
                     {
-                        transportTreasure.text = $"{city.treasureNum}"; // 设置为城市现有的金钱量
-                        Debug.Log($"{city.cityName}将消耗{city.treasureNum}宝物");
+                        transportTreasure.text = $"{city.GetTreasureNum()}"; // 设置为城市现有的金钱量
+                        Debug.Log($"{city.cityName}将消耗{city.GetTreasureNum()}宝物");
                     }
                     else
                     {
                         Debug.Log($"{city.cityName}将消耗{intValue}宝物");
                     }
                     confirmButton.SetActive(true);
-                    cancelButton.SetActive(true);
                     confirmButton.GetComponent<Button>().onClick.AddListener(OnConfirmButtonClicked);
-                    cancelButton.GetComponent<Button>().onClick.AddListener(GoToNextScene);
+                    EnableCancelButton();
                 }
             }
         }
@@ -547,7 +567,9 @@ namespace TurnClass
         {
             InteriorPanel();
             rewardPanel.SetActive(true);
+            useTreasure.onValueChanged.RemoveAllListeners();
             useTreasure.onValueChanged.AddListener(delegate { ToggleValueChanged(useTreasure); });
+            useMoney.onValueChanged.RemoveAllListeners();
             useMoney.onValueChanged.AddListener(delegate { ToggleValueChanged(useMoney); });
         }
 
@@ -558,13 +580,11 @@ namespace TurnClass
             General general = GeneralListCache.GetGeneral(doGeneralIds[0]);
             interiorPanel.SetActive(true);
             confirmButton.SetActive(true);
-            cancelButton.SetActive(true);
             confirmButton.GetComponent<Button>().onClick.RemoveAllListeners();
             confirmButton.GetComponent<Button>().onClick.AddListener(OnConfirmButtonClicked);
-            cancelButton.GetComponent<Button>().onClick.RemoveAllListeners();
-            cancelButton.GetComponent<Button>().onClick.AddListener(GoToNextScene);
-            title.text = $"{TextLibrary.GetTaskDescription(Task)}";
-            HeadImage.texture = Resources.Load<Texture2D>($"HeadImage/{doGeneralIds[0]}");
+            EnableCancelButton();
+            title.text = TextLibrary.GetTaskDescription(Task);
+            DataManager.LoadSpriteToImage($"Assets/Image/Head/{doGeneralIds[0]}.jpg", HeadImage);
             SelectName.text= general.generalName;
             _useGold = general.GetNeedMoneyOfInterior(Task);
             UseInfo.text = $"耗费金钱:{_useGold}";
@@ -573,28 +593,28 @@ namespace TurnClass
             { 
                 case TaskType.Reward:
                     Info1.text = $"忠诚：{general.loyalty}";
-                    Info2.text = $"宝物：{city.treasureNum}";
+                    Info2.text = $"宝物：{city.GetTreasureNum()}";
                     UseInfo.text = "选择赏赐百金或宝物";
-                    if (city.treasureNum <= 0)
+                    if (city.GetTreasureNum() <= 0)
                         useTreasure.interactable = false;
                     if (city.GetMoney() < 100)
                         useMoney.interactable = false;
                     break;
                 case TaskType.Reclaim:
-                    Info1.text = $"农业：{city.agro}";
+                    Info1.text = $"农业：{city.GetAgro()}";
                     Info2.text = $"粮食：{city.GetFood()}";
                     break;
                 case TaskType.Mercantile:
-                    Info1.text = $"商业：{city.trade}";
+                    Info1.text = $"商业：{city.GetTrade()}";
                     Info2.text = $"金钱：{city.GetMoney()}";
                     break;
                 case TaskType.Tame:
-                    Info1.text = $"统治：{city.rule}";
-                    Info2.text = $"防灾：{city.floodControl}";
+                    Info1.text = $"统治：{city.GetRule()}";
+                    Info2.text = $"防灾：{city.GetFloodControl()}";
                     break;
                 case TaskType.Patrol:
-                    Info1.text = $"统治：{city.rule}";
-                    Info2.text = $"人口:{city.population}";
+                    Info1.text = $"统治：{city.GetRule()}";
+                    Info2.text = $"人口:{city.GetPopulation()}";
                     break;
             }
         }
@@ -653,9 +673,8 @@ namespace TurnClass
             NextButton.onClick.AddListener(ShowNextCountry);
 
             confirmButton.SetActive(true);
-            cancelButton.SetActive(true);
             confirmButton.GetComponent<Button>().onClick.AddListener(OnConfirmButtonClicked);
-            cancelButton.GetComponent<Button>().onClick.AddListener(GoToNextScene);
+            EnableCancelButton();
 
             void ShowCountryInfo(byte tarCountryId)
             {
@@ -735,7 +754,7 @@ namespace TurnClass
         {
             if (index != 0)
             {
-                DataManagement.SaveGame(index - 1);
+                DataManager.SaveGame(index - 1);
             }
             recordPanel.RecordIndex -= SaveRecord;
             GoToNextScene();
@@ -745,7 +764,7 @@ namespace TurnClass
         {
             if (index != 0)
             {
-                DataManagement.Instance.LoadGame(index - 1);
+                DataManager.LoadGame(index - 1);
             }
             recordPanel.RecordIndex -= LoadRecord;
             GoToNextScene();

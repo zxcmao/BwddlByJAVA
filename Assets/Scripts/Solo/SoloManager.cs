@@ -27,15 +27,15 @@ public class SoloManager
     {
         this.hmGeneral = hmGeneral;
         this.aiGeneral = aiGeneral;
-        _hmInitialHp = hmGeneral.GetCurPhysical();
-        _aiInitialHp = aiGeneral.GetCurPhysical();
+        _hmInitialHp = hmGeneral.GetHP();
+        _aiInitialHp = aiGeneral.GetHP();
     }
     
     //单挑会掉落武器的检测方法
     public void CheckWeaponDrop()
     {
         seizedWeapon = false;
-        short weaponId = aiGeneral.weapon;
+        short weaponId = aiGeneral.arm;
         short armorId = aiGeneral.armor;
         // 检查AI将领是否符合特定ID并设置相关标志
         if (weaponId == 5 || weaponId == 6 || weaponId == 7 || weaponId == 14 || weaponId == 15 || weaponId == 21 || weaponId == 23
@@ -49,47 +49,59 @@ public class SoloManager
     {
         if (!seizedWeapon) return null;
         // 如果为true，根据AI将领武器ID分配武器或防具
-        Weapon weapon = WeaponListCache.GetWeapon(aiGeneral.weapon);
+        Weapon weapon = WeaponListCache.GetWeapon(aiGeneral.arm);
         Weapon armor = WeaponListCache.GetWeapon(aiGeneral.armor);
-        if (weapon.weaponId == 6)
+        if (weapon.weaponID == 6)
         {
-            hmGeneral.weapon = 6;
+            hmGeneral.arm = 6;
             return weapon.weaponName;
         }
-        if (armor.weaponId == 30)
+        if (armor.weaponID == 30)
         {
             hmGeneral.armor = 30;
             return armor.weaponName;
         }
-        if (armor.weaponId == 31)
+        if (armor.weaponID == 31)
         {
             hmGeneral.armor = 31;
             return armor.weaponName;
         }
-        if (weapon.weaponId == 7)
+        if (weapon.weaponID == 7)
         {
-            hmGeneral.weapon = 7;
+            hmGeneral.arm = 7;
             return weapon.weaponName;
         }
-        if (weapon.weaponId == 5)
+        if (weapon.weaponID == 5)
         {
-            hmGeneral.weapon = 5;
+            hmGeneral.arm = 5;
             return weapon.weaponName;
         }
-        if (weapon.weaponId == 14)
+        if (weapon.weaponID == 14)
         {
-            hmGeneral.weapon = 14;
+            hmGeneral.arm = 14;
             return weapon.weaponName;
         }
         return null;
     }
-    
+
+    public bool IsPlayerFirst()
+    {
+        var hmWeight = WeaponListCache.GetWeapon(hmGeneral.arm).weight + 
+                        WeaponListCache.GetWeapon(hmGeneral.armor).weight;
+        
+        var aiWeight = WeaponListCache.GetWeapon(aiGeneral.arm).weight + 
+                       WeaponListCache.GetWeapon(aiGeneral.armor).weight;
+        var hmValue = (hmGeneral.force + hmGeneral.health)/10 + Random.Range(20,30) - hmWeight;
+        var aiValue = (aiGeneral.force + aiGeneral.health)/10 + Random.Range(20,30) - aiWeight;
+        return hmValue > aiValue;
+        
+    }
     // 单挑连击方法
     public bool ComboTrigger(General atkGeneral)
     {
-        Weapon weapon = WeaponListCache.GetWeapon(atkGeneral.weapon);
+        Weapon weapon = WeaponListCache.GetWeapon(atkGeneral.arm);
         Weapon armor = WeaponListCache.GetWeapon(atkGeneral.armor);
-        if (weapon.weaponId == 15 || weapon.weaponId == 21 || weapon.weaponId == 22 || weapon.weaponId == 23)
+        if (weapon.weaponID == 15 || weapon.weaponID == 21 || weapon.weaponID == 22 || weapon.weaponID == 23)
         {
             if (Random.Range(0,6)<1)
             {
@@ -114,7 +126,7 @@ public class SoloManager
                 return true;
             }
         }
-        byte totalWeight = (byte) (weapon.weaponWeight + armor.weaponWeight);
+        byte totalWeight = (byte) (weapon.weight + armor.weight);
         if (Random.Range(0,101) - totalWeight >= 70)
         {
             Debug.Log(atkGeneral.generalName+"连击");
@@ -128,11 +140,11 @@ public class SoloManager
     {
         int hmCurPhysical = 0;
         if (hmGeneral != null)
-            hmCurPhysical = hmGeneral.GetCurPhysical(); // 获取玩家当前体力
+            hmCurPhysical = hmGeneral.GetHP(); // 获取玩家当前体力
 
         int aiCurPhysical = 0;
         if (aiGeneral != null)
-            aiCurPhysical = aiGeneral.GetCurPhysical(); // 获取AI当前体力
+            aiCurPhysical = aiGeneral.GetHP(); // 获取AI当前体力
 
         // 计算经验值
         int aiExp = (int)((_hmInitialHp - hmCurPhysical) * 1.2D);
@@ -195,17 +207,17 @@ public class SoloManager
     byte byte_ss_a(short word0, short word1)
     {
         // 当前体力低于20且随机数为偶数，返回4
-        if (GeneralListCache.GetGeneral(word0).GetCurPhysical() < 20 && Random.Range(0, 3) == 0)
+        if (GeneralListCache.GetGeneral(word0).GetHP() < 20 && Random.Range(0, 3) == 0)
             return 4;
 
         // 当前体力低于最大体力的一半且对方体力比自身高10，随机数小于3时返回2
-        if (GeneralListCache.GetGeneral(word0).GetCurPhysical() < GeneralListCache.GetGeneral(word0).maxPhysical / 2 &&
-            GeneralListCache.GetGeneral(word1).GetCurPhysical() - GeneralListCache.GetGeneral(word0).GetCurPhysical() > 10 &&
+        if (GeneralListCache.GetGeneral(word0).GetHP() < GeneralListCache.GetGeneral(word0).maxHealth / 2 &&
+            GeneralListCache.GetGeneral(word1).GetHP() - GeneralListCache.GetGeneral(word0).GetHP() > 10 &&
             Random.Range(0, 11) < 3)
             return 2;
 
         // 当前体力低于对方体力时，根据随机数返回0或1
-        if (GeneralListCache.GetGeneral(word0).GetCurPhysical() < GeneralListCache.GetGeneral(word1).GetCurPhysical())
+        if (GeneralListCache.GetGeneral(word0).GetHP() < GeneralListCache.GetGeneral(word1).GetHP())
             return (byte)((Random.Range(0, 11) >= 6) ? 0 : 1);
 
         // 否则根据随机数返回1或0
@@ -216,7 +228,7 @@ public class SoloManager
     static byte WeaponEffect(General atkGeneral, General defGeneral, byte sc, bool whack)
     {
         // 获取进攻方的武器类型和防守方的防具类型
-        byte a = atkGeneral.weapon;
+        byte a = atkGeneral.arm;
         byte b = defGeneral.armor;
 
         // 根据武器和防具的类型调整sc的值
@@ -239,8 +251,8 @@ public class SoloManager
     public static byte GetPercentage(General atkGeneral, General defGeneral, bool whack, bool hmAtk)
     {
         byte sc = 0;
-        byte atkGenWeaponType = WeaponListCache.GetWeapon(atkGeneral.weapon).weaponType;
-        byte defGenWeaponType = WeaponListCache.GetWeapon(defGeneral.weapon).weaponType;
+        byte atkGenWeaponType = WeaponListCache.GetWeapon(atkGeneral.arm).kind;
+        byte defGenWeaponType = WeaponListCache.GetWeapon(defGeneral.arm).kind;
 
         // 根据双方的武器类型设置基础命中率
         if (atkGenWeaponType == 0 && defGenWeaponType == 0)
@@ -285,7 +297,7 @@ public class SoloManager
         if (beGeneral.GetLoyalty() > 99)
             return false;  // 如果将领忠诚度大于99，不招降
 
-        int i1 = (doGeneral.moral * 7 + doGeneral.IQ * 3) * 10 / 99;  // 计算奖励值
+        int i1 = (doGeneral.charm * 7 + doGeneral.wisdom * 3) * 10 / 99;  // 计算奖励值
         i1 = (i1 - 70) / 5;  // 调整招降值
         if (i1 == 4)
         {
@@ -295,7 +307,7 @@ public class SoloManager
         {
             i1 = 8;  // 招降值为8
         }
-        i1 = beGeneral.GetCurPhysical() + beGeneral.GetLoyalty() - i1 + Random.Range(0, 5);  // 计算最终值
+        i1 = beGeneral.GetHP() + beGeneral.GetLoyalty() - i1 + Random.Range(0, 5);  // 计算最终值
         return (i1 < 100);  // 如果最终值小于100，则返回true
     }
 
@@ -310,7 +322,7 @@ public class SoloManager
         if (beGeneral.GetLoyalty() > 99)
             return false;  // 如果将领忠诚度大于99，不招降
 
-        int i1 = (doGeneral.moral * 7 + doGeneral.IQ * 3) * 10 / 99;  // 计算奖励值
+        int i1 = (doGeneral.charm * 7 + doGeneral.wisdom * 3) * 10 / 99;  // 计算奖励值
         i1 = (i1 - 70) / 5;  // 调整招降值
         if (i1 == 4)
         {
@@ -320,7 +332,7 @@ public class SoloManager
         {
             i1 = 8;  // 招降值为8
         }
-        i1 = beGeneral.GetCurPhysical() + beGeneral.GetLoyalty() - i1 + Random.Range(0, 5);  // 计算最终值
+        i1 = beGeneral.GetHP() + beGeneral.GetLoyalty() - i1 + Random.Range(0, 5);  // 计算最终值
         return (i1 < 110);  // 如果最终值小于110，则返回true
     }
 
@@ -441,8 +453,8 @@ public class SoloManager
     // 获取 AI 当前的状态
     public SoloAction GetAISoloAction()
     {
-        int aiCurPhysical = aiGeneral.GetCurPhysical();
-        int hmCurPhysical = hmGeneral.GetCurPhysical();
+        int aiCurPhysical = aiGeneral.GetHP();
+        int hmCurPhysical = hmGeneral.GetHP();
         short aiAtkPower = aiGeneral.GetAttackPower();
         short aiDefPower = aiGeneral.GetDefendPower();
         short hmAtkPower = hmGeneral.GetAttackPower();

@@ -38,7 +38,7 @@ public class CityListCache : MonoBehaviour
     // 添加城市到列表
     public static void AddCity(City city)
     {
-        cityDictionary.TryAdd(city.cityId, city);
+        cityDictionary.TryAdd(city.cityID, city);
     }
 
     // 获取城市数量
@@ -58,11 +58,11 @@ public class CityListCache : MonoBehaviour
 
         foreach (short generalId in generalIds)
         {
-            if (generalId == fromCity.cityBelongKing)
+            if (generalId == fromCity.ownerID)
             {
                 fromCity.RemoveOfficerId(generalId);
                 toCity.AddOfficeGeneralId(generalId);
-                toCity.AppointmentPrefect(generalId);
+                toCity.AppointPrefect(generalId);
                 isKingMove = true;
                 Debug.Log("将君主移动到" + toCity.cityName);
             }
@@ -85,10 +85,10 @@ public class CityListCache : MonoBehaviour
         City inCity = GetCityByCityId(incityId);
         outCity.SubGold(money); // 从目标城市减少金钱
         outCity.SubFood(food); // 从目标城市减少粮食
-        outCity.treasureNum = (byte)(GetCityByCityId(outcityId).treasureNum - treasureNum); // 更新目标城市的宝物数量
+        outCity.SubTreasureNum(treasureNum); // 更新目标城市的宝物数量
         inCity.AddGold(money); // 向当前城市添加金钱
         inCity.AddFood(food); // 向当前城市添加粮食
-        inCity.treasureNum = (byte)(GetCityByCityId(incityId).treasureNum + treasureNum); // 更新当前城市的宝物数量
+        inCity.AddTreasureNum(treasureNum); // 更新当前城市的宝物数量
     }
 }
 

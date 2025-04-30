@@ -1,8 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using BaseClass;
+using DataClass;
 using TMPro;
 using UIClass;
 using UnityEngine;
@@ -54,10 +56,10 @@ namespace Battle
         // 当前速度
         [SerializeField] private Text speedDisplay; // 当前速度显示文本
         private float[] speedLevels = { 0.5f, 0.75f, 1f, 1.5f, 2f }; // 支持的速度等级
-        private int currentSpeedIndex = 2; // 当前速度在数组中的索引（1倍速为默认值）
+        private int currentSpeedIndex; // 当前速度在数组中的索引（1倍速为默认值）
 
-        [SerializeField] private RawImage hmHead;
-        [SerializeField] private RawImage aiHead;
+        [SerializeField] private Image hmHead;
+        [SerializeField] private Image aiHead;
         [SerializeField] private TextMeshProUGUI hmName;
         [SerializeField] private TextMeshProUGUI aiName;
         [SerializeField] private Text hmGenHpText;
@@ -80,14 +82,24 @@ namespace Battle
         [SerializeField] private TMP_Dropdown dropdown3; // 步兵下拉菜单
         public UITactic uiTactic; // UI战术面板
         public UITips uiTips; // UI提示通知
-        
+
+        private void OnDisable()
+        {
+            DataManager.Release(hmHead.sprite);
+            DataManager.Release(aiHead.sprite);
+        }
+
         // 开始时UI设置
         public void InitUIBattle()
         {
+            currentSpeedIndex = 2;
             UpdatePausePlayButton();
-            UpdateSpeedButtons();
+            UpdateGameSpeed();
+            pausePlayButton.onClick.RemoveAllListeners();
             pausePlayButton.onClick.AddListener(TogglePausePlay);
+            speedUpButton.onClick.RemoveAllListeners();
             speedUpButton.onClick.AddListener(SpeedUp);
+            slowDownButton.onClick.RemoveAllListeners();
             slowDownButton.onClick.AddListener(SlowDown);
 
             ShowBattleInfo();
@@ -107,18 +119,19 @@ namespace Battle
             }*/
             General hmGen = BattleManager.Instance.hmGeneral;
             General aiGen = BattleManager.Instance.aiGeneral;
-            hmHead.texture = Resources.Load<Texture2D>($"HeadImage/{BattleManager.Instance.hmGeneral.generalId}");
-            aiHead.texture = Resources.Load<Texture2D>($"HeadImage/{BattleManager.Instance.aiGeneral.generalId}");
+            DataManager.LoadSpriteToImage($"Assets/Image/Head/{hmGen.generalId}.jpg", hmHead);
+            DataManager.LoadSpriteToImage($"Assets/Image/Head/{aiGen.generalId}.jpg", aiHead);
+            
             hmName.text = hmGen.generalName;
             aiName.text = aiGen.generalName;
             speedDisplay.text = "x" + speedLevels[currentSpeedIndex].ToString("F2");
             hmTacticText.text = BattleManager.Instance.hmTacticPoint.ToString();
             hmForceText.text = hmGen.force.ToString();
             hmLeadText.text = hmGen.lead.ToString();
-            hmTotalSoldierText.text = hmGen.generalSoldier.ToString();
-            aiTotalSoldierText.text = aiGen.generalSoldier.ToString();
-            hmGenHpText.text = hmGen.curPhysical.ToString();
-            aiGenHpText.text = aiGen.curPhysical.ToString();
+            hmTotalSoldierText.text = hmGen.soldiers.ToString();
+            aiTotalSoldierText.text = aiGen.soldiers.ToString();
+            hmGenHpText.text = hmGen.health.ToString();
+            aiGenHpText.text = aiGen.health.ToString();
             hmCavalryText.text = BattleManager.Instance.hmCAI_Num[0].ToString();
             aiCavalryText.text = BattleManager.Instance.aiCAI_Num[0].ToString();
             hmArcherText.text = BattleManager.Instance.hmCAI_Num[1].ToString();
@@ -273,8 +286,8 @@ namespace Battle
                 switch (troopType)
                 {
                     case TroopType.Captain:
-                        // 限制体力不能为负数
-                        BattleManager.Instance.hmGeneral.SubHp(loss);
+                        loss /= 3;
+                        BattleManager.Instance.hmGeneral.SubHP(loss);
                         BattleManager.Instance.hmGeneralHurt += loss; // 记录总伤害，无需检查
                         break;
 
@@ -303,7 +316,8 @@ namespace Battle
                 switch (troopType)
                 {
                     case TroopType.Captain:
-                        BattleManager.Instance.aiGeneral.SubHp(loss);
+                        loss /= 3;
+                        BattleManager.Instance.aiGeneral.SubHP(loss);
                         BattleManager.Instance.aiGeneralHurt += loss;
                         break;
                     case TroopType.Cavalry:

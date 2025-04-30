@@ -149,10 +149,13 @@ namespace Battle
                         BM.aiTroops[i].data.troopState = TroopState.Forward;
                 }
 
-            if (aiArcherNum == 0 && hmArcherNum > 0)
+            if (UIBattle.Instance.uiTactic.CheckTacticalState(2, true))
+                BM.aiTroops[0].data.troopState = TroopState.Idle;
+
+            else if (aiArcherNum == 0 && hmArcherNum > 0)
                 BM.aiTroops[0].data.troopState = TroopState.BackWard;
 
-            if ((aiSoldierNum < 100 && (hmSoldierNum > 450 || hmArcherNum >= 1)) || AIGenBattleRetreat() || (CanAdjacentSolo() && AIGenRefuseSolo()))
+            else if ((aiSoldierNum < 100 && (hmSoldierNum > 450 || hmArcherNum >= 1)) || AIGenBattleRetreat() || (CanAdjacentSolo() && AIGenRefuseSolo()))
                 BM.aiTroops[0].data.troopState = TroopState.BackWard;
         }
     
@@ -254,10 +257,13 @@ namespace Battle
                         BM.aiTroops[i].data.troopState = TroopState.BackWard;
                 }
 
-            if (aiSoldierNum < 100 || AIGenBattleRetreat() || (CanAdjacentSolo() && AIGenRefuseSolo()))
+            if (UIBattle.Instance.uiTactic.CheckTacticalState(2, true))
+                BM.aiTroops[0].data.troopState = TroopState.Idle;
+            
+            else if (aiSoldierNum < 100 || AIGenBattleRetreat() || (CanAdjacentSolo() && AIGenRefuseSolo()))
                 BM.aiTroops[0].data.troopState = TroopState.BackWard;
 
-            if (hmSoldierNum <= 100 && !AIGenRefuseSolo())
+            else if (hmSoldierNum <= 100 && !AIGenRefuseSolo())
                 BM.aiTroops[0].data.troopState = TroopState.Forward;
         }
      
@@ -500,38 +506,28 @@ namespace Battle
             byte archerNum = 0;  // 弓箭小兵数量
             byte longAtkNum = 0;  // 电脑弓箭手如果使用射程可以攻击到玩家兵的次数
             byte longAtkArcherNum = 0;  // 电脑弓箭手如果使用射程可以攻击到玩家弓箭手的次数
-
+            byte atkRange = (byte)(BM.aiGeneral.HasSkill(2, 6) ? 5 : 4);  // 获取弓箭手射程是否享受特技连弩加成
             // 遍历所有小士兵
-            for (byte index = 0; index < BM.aiTroops.Count; index++)
+            for (byte index = 1; index < BM.aiTroops.Count; index++)
             {
                 // 判断士兵是否存活且种类为弓兵
                 if (BM.aiTroops[index].health > 0 && BM.aiTroops[index].troopType == TroopType.Archer)
                 {
                     archerNum++;  // 增加存在的士兵数量
-                    
-                    // 检查其增加距离攻击能力
-                    for (var dx = 1; dx < 7; dx++)
+                    foreach (var hmTroop in BM.hmTroops)
                     {
-                        var x = BM.aiTroops[index].arrayPos.x - dx;  // 获取弓箭手连弩射程内士兵的X坐标
-                        var y = BM.aiTroops[index].arrayPos.y;  // 获取士兵的Y坐标
-
-                        // 检查是否超出地图范围
-                        if (x < 0)
-                            break;
-
-                        // 检查是否可以增加距离攻击
-                        if (BM.battleMap[y, x] == 64 && dx >= 5)
+                        if (hmTroop.health > 0 && hmTroop.arrayPos.y == BM.aiTroops[index].arrayPos.y)
                         {
-                            longAtkNum++;
+                            var distance = Mathf.Abs(BM.aiTroops[index].arrayPos.x - hmTroop.arrayPos.x);
+                            if (distance > atkRange && distance <= atkRange + 2)
+                            {
+                                if (hmTroop.troopType == TroopType.Archer)
+                                {
+                                    longAtkArcherNum++;
+                                }
+                                longAtkNum++;
+                            }
                         }
-
-                        // 检查玩家弓箭手是否在增加的攻击范围内
-                        for (byte i = 1; i < BM.hmTroops.Count; i++)
-                        {
-                            if (BM.hmTroops[i].health > 0 && BM.hmTroops[i] == BM.GetTroopByXY(x,y) && BM.hmTroops[i].troopType == TroopType.Archer)
-                                longAtkArcherNum++;
-                        }
-                        
                     }
                 }
             }
@@ -701,17 +697,25 @@ namespace Battle
      
 
         //TODO Battle时AI将军判断是否撤退
-        bool AIBattleGenRetreat()
+        bool AIGenBattleRetreat()
         {
             // 获取参与战斗的士兵数量，分别计算己方和敌方的数量
             short pySoldierNum = GetBattleSoldierNum(true);  // 玩家士兵数量
             short aiSoldierNum = GetBattleSoldierNum(false); // AI士兵数量
 
             // 获取己方将军的初始坐标
-            byte aix = (byte)BM.aiTroops[0].arrayPos.x; // AI士兵的X坐标
-            byte aiy = (byte)BM.aiTroops[0].arrayPos.y; // AI士兵的Y坐标
+            Troop aiCaptain = BM.aiTroops[0];
+            byte aix = (byte)aiCaptain.arrayPos.x; // AI将军的X坐标
+            byte aiy = (byte)aiCaptain.arrayPos.y; // AI将军的Y坐标
 
-            short canatkps = 0;  // 可攻击点数
+            byte atkRange = (byte)(BM.hmGeneral.HasSkill(2, 6) ? 5 : 4);  // 玩家弓箭手射程是否享受特技连弩加成
+            if (UIBattle.Instance.uiTactic.CheckTacticalState(3,true))
+            {
+                atkRange += 2; // 玩家弓箭手连弩战术的射程加成
+            }
+            
+            short predictHurt = 0;  // 预估伤害值
+            int noRetreatRate = 100; // 不撤退的概率
             byte testx = 0;     // 测试用X坐标
             byte testy = 0;     // 测试用Y坐标
 
@@ -722,152 +726,84 @@ namespace Battle
                 {
                     if (hmTroop.health <= 0)
                         continue;
-                    byte cellX = (byte)hmTroop.arrayPos.x; // 士兵的X坐标
-                    byte cellY = (byte)hmTroop.arrayPos.y; // 士兵的Y坐标
-                    byte dx = (byte)Math.Abs(aix - cellX); // X方向上的距离
-                    byte dy = (byte)Math.Abs(aiy - cellY); // Y方向上的距离
-                    bool willBeAtk = false; // 判断是否遭受攻击
+                    byte pyX = (byte)hmTroop.arrayPos.x; // 玩家士兵的X坐标
+                    byte pyY = (byte)hmTroop.arrayPos.y; // 玩家士兵的Y坐标
+                    byte dx = (byte)Mathf.Abs(aix - pyX); // X方向上的距离
+                    byte dy = (byte)Mathf.Abs(aiy - pyY); // Y方向上的距离
+                    bool willBeAtk = false; // 判断是否会遭受攻击
+                    bool willBeSurround = false; // 判断是否会被包围
 
                     // 检查士兵种类和攻击条件（不同的攻击逻辑适用于不同的士兵种类）
-                    if (hmTroop.troopType == TroopType.Archer && (dx <= 6 && dy == 0 || dx == 0 || dx + dy <= 2))
+                    if (hmTroop.troopType == TroopType.Archer) // 判断弓箭手
                     {
-                        // 处理玩家连弩战术的情况并判断玩家弓箭手是否可以攻击到
-                        if (dx is >= 5 and <= 7 && dy == 0 && UIBattle.Instance.uiTactic.CheckTacticalState(3,true) && aix > cellX)
+                        // 判断是否会被玩家弓箭手攻击
+                        if ((dx <= atkRange && dy == 0) || dx == 0)
                         {
-                            for (int i = 1; i < dx; i++)
-                            {
-                                if (BM.battleMap[cellY, cellX + i] == Byte.MinValue)
-                                {
-                                    willBeAtk = false;
-                                    break;
-                                }
-                                willBeAtk = true;
-                            }
+                            willBeAtk = true;
+                            predictHurt += aiCaptain.BattleHurtCalculate(hmTroop);
                         }
-
-                        // 处理正常的情况并判断玩家弓箭手是否可以攻击到
-                        if (dx is >= 1 and <= 4 && dy == 0 && aix > cellX)
+                        else if (dx + dy <= 2)// 判断是否会被玩家弓箭手包围
                         {
-                            if (aix > cellX + 1)
-                            {
-                                for (int i = 1; i < dx; i++)
-                                {
-                                    if (BM.battleMap[cellY, cellX + i] == Byte.MinValue)
-                                    {
-                                        willBeAtk = false;
-                                        break;
-                                    }
-                                    willBeAtk = true;
-                                }
-                            }
-                            else if (aix == cellX + 1)
-                            {
-                                willBeAtk = true;
-                            }
+                            willBeSurround = true;
+                            noRetreatRate /= 2;
                         }
-
-                        // 同在竖直方向上的判断
-                        if (dx == 0)
+                    }
+                    else if (hmTroop.troopType == TroopType.Cavalry || hmTroop.troopType == TroopType.Captain) // 判断骑兵和将军
+                    {
+                        if (dx + dy <= 1)
                         {
-                            if (aiy > cellY + 1)
-                            {
-                                for (int i = 1; i < dy; i++)
-                                {
-                                    if (BM.battleMap[cellY + i, cellX] == Byte.MinValue)
-                                    {
-                                        willBeAtk = false;
-                                        break;
-                                    }
-                                    willBeAtk = true;
-                                }
-                            }
-                            else if (aiy < cellY - 1)
-                            {
-                                for (int i = 1; i < dy; i++)
-                                {
-                                    if (BM.battleMap[cellY - i, cellX] == Byte.MinValue)
-                                    {
-                                        willBeAtk = false;
-                                        break;
-                                    }
-                                    willBeAtk = true;
-                                }
-                            }
-                            else if (aiy == cellY + 1 || aiy == cellY - 1)
-                            {
-                                willBeAtk = true;
-                            }
+                            willBeAtk = true;
+                            predictHurt += (short)(2 * aiCaptain.BattleHurtCalculate(hmTroop));
+                        }
+                        else if (dx + dy <= 2)
+                        {
+                            willBeAtk = true;
+                            predictHurt += aiCaptain.BattleHurtCalculate(hmTroop);
+                        }
+                        else if (dx + dy <= 3)
+                        {
+                            willBeSurround = true;
+                            noRetreatRate /= 4;
+                        }
+                    }
+                    else if (hmTroop.troopType == TroopType.Infantry) // 判断步兵
+                    {
+                        if (dx + dy <= 1)
+                        {
+                            willBeAtk = true;
+                            predictHurt += aiCaptain.BattleHurtCalculate(hmTroop);
+                        }
+                        else if (dx + dy <= 2)
+                        {
+                            willBeSurround = true;
+                            noRetreatRate /= 2;
                         }
                     }
 
-                    // 类似的逻辑用于不同种类的士兵
-                    else if (BM.GetTroopByXY(cellX, cellY)!=null && BM.GetTroopByXY(cellX, cellY).troopType == TroopType.Cavalry && dx + dy <= 2)
-                    {
-                        // 判断是否可以攻击的条件
-                        if (aiy == cellY && aix == cellX + 2 && BM.battleMap[aiy, aix - 1] != Byte.MinValue)
-                            willBeAtk = true;
-                        if (aiy == cellY && aix == cellX + 1)
-                            willBeAtk = true;
-                        if (aiy == cellY && aix == cellX - 2 && BM.battleMap[aiy, aix + 1] != Byte.MinValue)
-                            willBeAtk = true;
-                        if (aiy == cellY && aix == cellX + 1)
-                            willBeAtk = true;
-                        if (aix == cellX && aiy == cellY + 2 && BM.battleMap[aiy + 1, aix] != Byte.MinValue)
-                            willBeAtk = true;
-                        if (aix == cellX && aiy == cellY + 1)
-                            willBeAtk = true;
-                        if (aix == cellX && aiy == cellY - 2 && BM.battleMap[aiy - 1, aix] != Byte.MinValue)
-                            willBeAtk = true;
-                        if (aix == cellX && aiy == cellY - 1)
-                            willBeAtk = true;
-                    }
-
-                    // 如果可以攻击，计算攻击点数
-                    if (willBeAtk)
-                    {
-                        short blood = 1;
-                        short atk = 1;
-
-                        // 遍历己方士兵列表，找到对应的士兵并计算其攻击点数
-                        for (int hmindex = 0; hmindex < BM.hmTroops.Count; hmindex++)
-                        {
-                            if (BM.hmTroops[hmindex].health > 0 && BM.GetTroopByXY(cellX, cellY)!=null&& BM.GetTroopByXY(cellX, cellY) != null)
-                            {
-                                if (hmindex == 0)
-                                {
-                                    blood = 300;
-                                    //TODO BM.hmTroops[hmindex].InitPower();
-                                    atk = BM.hmTroops[hmindex].attackPower;
-                                    break;
-                                }
-                                blood = BM.hmTroops[hmindex].health;
-                                //BM.hmTroops[hmindex].InitPower();
-                                atk = BM.hmTroops[hmindex].attackPower;
-                                break;
-                            }
-                        }
-                        //BM.aiTroops[0].InitPower();
-                        canatkps = (short)(canatkps + BM.aiTroops[0].CalculateDamage(BM.hmTroops[0]));
-                    }
+                    
                 }
             }
             catch (IndexOutOfRangeException e)
             {
-                canatkps = 50; // 捕获异常，设置默认攻击点数
+                predictHurt = 50; // 捕获异常，设置默认攻击点数
                 Debug.LogError(e);
             }
 
             // 根据计算的攻击点数和当前AI将领的体力判断是否撤退
-            if ((canatkps > BM.aiGeneral.GetCurPhysical() - 35 && canatkps > 0) || BM.aiGeneral.GetCurPhysical() < 35 && pySoldierNum > 450 && aiSoldierNum < 100 && BM.aiTacticPoint < 12)
+            if ((predictHurt > BM.aiGeneral.GetHP() - 35 && predictHurt > 0) || BM.aiGeneral.GetHP() < 35 && pySoldierNum > 450 && aiSoldierNum < 100 && BM.aiTacticPoint < 12)
                 return true;
 
+            // 如果会被包围
+            if ((100 - noRetreatRate) > UnityEngine.Random.Range(0, 100))
+                return true;
+            
             // 判断是否需要执行"可能被包围"策略
-            if (SurroundEarlyWarning(canatkps))
+            if (SurroundEarlyWarning(predictHurt))
                 return true;
 
             return false;
         }
-        bool AIGenBattleRetreat()
+        bool OldAIGenBattleRetreat()
         {
             // 获取参与战斗的士兵数量，分别计算己方和敌方的数量
             short pySoldierNum = GetBattleSoldierNum(true);  // 玩家士兵数量
@@ -894,8 +830,8 @@ namespace Battle
                         // 检查当前单元格是否有敌方士兵
                         if (BM.battleMap[cellY, cellX]  == 64)
                         {
-                            byte dx = (byte)Math.Abs(aix - cellX); // X方向上的距离
-                            byte dy = (byte)Math.Abs(aiy - cellY); // Y方向上的距离
+                            byte dx = (byte)Mathf.Abs(aix - cellX); // X方向上的距离
+                            byte dy = (byte)Mathf.Abs(aiy - cellY); // Y方向上的距离
                             bool willBeAtk = false; // 判断是否遭受攻击
 
                             // 检查士兵种类和攻击条件（不同的攻击逻辑适用于不同的士兵种类）
@@ -1017,7 +953,7 @@ namespace Battle
                                     }
                                 }
                                 //BM.aiTroops[0].InitPower();
-                                canatkps = (short)(canatkps + BM.aiTroops[0].CalculateDamage(BM.hmTroops[0]));
+                                canatkps = (short)(canatkps + BM.aiTroops[0].BattleHurtCalculate(BM.hmTroops[0]));
                             }
                         }
                     }
@@ -1030,7 +966,7 @@ namespace Battle
             }
 
             // 根据计算的攻击点数和当前AI将领的体力判断是否撤退
-            if ((canatkps > BM.aiGeneral.GetCurPhysical() - 35 && canatkps > 0) || BM.aiGeneral.GetCurPhysical() < 35 && pySoldierNum > 450 && aiSoldierNum < 100 && BM.aiTacticPoint < 12)
+            if ((canatkps > BM.aiGeneral.GetHP() - 35 && canatkps > 0) || BM.aiGeneral.GetHP() < 35 && pySoldierNum > 450 && aiSoldierNum < 100 && BM.aiTacticPoint < 12)
                 return true;
 
             // 判断是否需要执行"可能被包围"策略
@@ -1047,10 +983,10 @@ namespace Battle
         bool AIGenRefuseSolo()
         {
             // 判断当前将领的体力是否低于对方攻击造成的伤害
-            if (BM.aiGeneral.GetCurPhysical() < SoloManager.GetAtkDea(BM.hmGeneral, BM.hmTroops[0].attackPower, BM.aiTroops[0].defensePower) + 1)
+            if (BM.aiGeneral.GetHP() < SoloManager.GetAtkDea(BM.hmGeneral, BM.hmTroops[0].attackPower, BM.aiTroops[0].defensePower) + 1)
                 return true;
             DuelTactic duelTactic = new DuelTactic();
-            bool isSuccessOfDuel = duelTactic.CanExecute(2, true);
+            bool isSuccessOfDuel = duelTactic.IsSuccessful(true);
             // 如果单挑会失败则撤退
             return !isSuccessOfDuel;
         }
@@ -1129,7 +1065,7 @@ namespace Battle
                 byte hmX = (byte)BM.hmTroops[0].arrayPos.x; // 玩家士兵X坐标
                 byte hmY = (byte)BM.hmTroops[0].arrayPos.y; // 玩家士兵Y坐标
                 byte dx = (byte)(x - hmX); // X轴距离
-                byte dy = (byte)Math.Abs(y - hmY); // Y轴距离
+                byte dy = (byte)Mathf.Abs(y - hmY); // Y轴距离
 
                 // 如果AI与玩家士兵的距离符合条件，则减少W值并设置AI行动标志
                 if (dx >= 1 && dx <= 3 && dy <= 1)
@@ -1148,7 +1084,7 @@ namespace Battle
                             if (BM.battleMap[cellY, cellX]  == 64)
                             {
                                 byte dsx = (byte)(x - cellX);
-                                byte dsy = (byte)Math.Abs(y - cellY);
+                                byte dsy = (byte)Mathf.Abs(y - cellY);
                                 if (dsx >= 1 && dsx <= 3 && dsy <= 1)
                                     canBoomNum++;
                             }
@@ -1215,7 +1151,7 @@ namespace Battle
             {
                 if (BM.hmTroops[i].health > 0)
                 {
-                    int cursh = (int)BM.aiTroops[i].CalculateDamage(BM.hmTroops[i]);
+                    int cursh = (int)BM.aiTroops[i].BattleHurtCalculate(BM.hmTroops[i]);
                     maxsh += cursh;
                 }
             }
@@ -1228,7 +1164,7 @@ namespace Battle
             }
 
             // 根据玩家当前状态和AI状态调整AI的策略
-            if (BM.aiGeneral.GetCurPhysical() - 35 > maxsh && (hm70Num < 3 || maxsh < 25) && !AIGenRefuseSolo())
+            if (BM.aiGeneral.GetHP() - 35 > maxsh && (hm70Num < 3 || maxsh < 25) && !AIGenRefuseSolo())
             {
                 if (CanAdjacentSolo2() && AIGenRefuseSolo())
                 {
@@ -1244,15 +1180,18 @@ namespace Battle
                 BM.aiTroops[0].data.troopState = TroopState.Idle; // 待机
             }
 
+            if (UIBattle.Instance.uiTactic.CheckTacticalState(2, true))
+                BM.aiTroops[0].data.troopState = TroopState.Idle;
+            
             // AI撤退判断
-            if (AIGenBattleRetreat())
+            else if (AIGenBattleRetreat())
                 BM.aiTroops[0].data.troopState = TroopState.BackWard;// 撤退
 
-            if ((AIGenRefuseSolo() && aiSoldierNum < 100) || (CanAdjacentSolo() && AIGenRefuseSolo()))
+            else if ((AIGenRefuseSolo() && aiSoldierNum < 100) || (CanAdjacentSolo() && AIGenRefuseSolo()))
                 BM.aiTroops[0].data.troopState = TroopState.BackWard;// 撤退
 
             // 如果AI能够单挑胜利且接近玩家士兵，则进行单挑
-            if (CanSingleWin() && CanNearSingle())
+            else if (CanSingleWin() && CanNearSingle())
                 BM.aiTroops[0].data.troopState = TroopState.Idle; // 待机
         }
     
@@ -1278,7 +1217,7 @@ namespace Battle
                     return;
                 }
 
-                CrossbowAtkValue();  // 计算远程攻击数量
+                CrossbowAtkValue();  // 计算连弩战术值
                 if (BM.aiTacticPoint >= 8 && shoutAtkValue >= troopNum / 2 + 1 && troopNum >= 2)
                 {
                     UIBattle.Instance.uiTactic.ApplyTactic(4, false);
@@ -1293,7 +1232,7 @@ namespace Battle
             }
             else if (BM.aiTacticPoint >= 7)
             {
-                CrossbowAtkValue();  // 计算远程攻击数量
+                CrossbowAtkValue();  // 计算连弩战术值
             }
         }
     
@@ -1424,10 +1363,10 @@ namespace Battle
         /// <returns></returns>
         bool CanSingleWin()
         {
-            if (BM.aiGeneral.GetCurPhysical() < SoloManager.GetAtkDea(BM.hmGeneral, BM.hmTroops[0].attackPower, BM.aiTroops[0].defensePower) + 1)
+            if (BM.aiGeneral.GetHP() < SoloManager.GetAtkDea(BM.hmGeneral, BM.hmTroops[0].attackPower, BM.aiTroops[0].defensePower) + 1)
                 return false;
             DuelTactic duel =new DuelTactic();
-            if (duel.CanExecute(2, true))
+            if (duel.IsSuccessful(true))
                 return true;
             return false;
         }
@@ -1458,14 +1397,14 @@ namespace Battle
             }
             else if (aix == hmx)
             {
-                if (Math.Abs(aiy - hmy) <= 2)
+                if (Mathf.Abs(aiy - hmy) <= 2)
                     return true;
             }
             else
             {
                 if (hmx - aix == 2 && hmy == aiy)
                     return true;
-                if (hmx - aix == 1 && Math.Abs(aiy - hmy) <= 2)
+                if (hmx - aix == 1 && Mathf.Abs(aiy - hmy) <= 2)
                     return true;
             }
             return false;
@@ -1501,21 +1440,21 @@ namespace Battle
                 }
             }
 
-            if (BM.aiGeneral.GetCurPhysical() - hurt - 15 < 0 && willBeAtk)
+            if (BM.aiGeneral.GetHP() - hurt - 15 < 0 && willBeAtk)
                 return true;
 
-            byte curps = BM.aiGeneral.GetCurPhysical();
-            BM.aiGeneral.SubHp((byte)hurt);
-            if (BM.aiGeneral.GetCurPhysical() < 1)
-                BM.aiGeneral.SetCurPhysical((byte)1);
+            byte curps = BM.aiGeneral.GetHP();
+            BM.aiGeneral.SubHP((byte)hurt);
+            if (BM.aiGeneral.GetHP() < 1)
+                BM.aiGeneral.SetHP((byte)1);
 
             if (AIGenRefuseSolo() && willBeAtk)
             {
-                BM.aiGeneral.SetCurPhysical(curps);
+                BM.aiGeneral.SetHP(curps);
                 return true;
             }
 
-            BM.aiGeneral.SetCurPhysical(curps);
+            BM.aiGeneral.SetHP(curps);
             return false;
         }
     }

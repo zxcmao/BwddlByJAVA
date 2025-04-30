@@ -21,12 +21,15 @@ namespace DataClass
         {
             { TaskType.None, "无" },
             { TaskType.Move, "移动" },
+            { TaskType.MoveDeny, "无处移动"},
             { TaskType.OverMove, "移动过多" },
             { TaskType.Attack, "战争" },
+            { TaskType.AttackDeny, "无城可攻" },
             { TaskType.OverAttack,"攻城频繁" },
             { TaskType.Conscript, "征兵" },
             { TaskType.Assign,"分配" },
             { TaskType.Transport, "输送" },
+            { TaskType.TransportDeny, "无处输送" },
             { TaskType.End, "结束" },
             { TaskType.Search, "搜索" },
             { TaskType.SearchMoney, "收缴金钱" },
@@ -68,6 +71,7 @@ namespace DataClass
             { TaskType.Hospital, "医馆" },
             { TaskType.LackHospital, "医所难觅" },
             { TaskType.HospitalDeny, "龙精虎猛" },
+            { TaskType.Inherit, "临危受命" },
             { TaskType.Save, "存储" },
             { TaskType.Load, "读取" },
             { TaskType.Settings, "环境" },
@@ -76,9 +80,14 @@ namespace DataClass
 
         };
 
-        public static string GetTaskDescription(this TaskType taskType)
+        public static string GetTaskDescription(TaskType taskType)
         {
-            return taskDescriptions[taskType];
+            if (taskDescriptions.TryGetValue(taskType, out string value))
+            {
+                return value;
+            }
+            UnityEngine.Debug.LogError("TaskType字典中不存在:" + taskType);
+            return "执行指令";
         }
 
         public static readonly string[][] skillsName = new string[][] {
@@ -378,6 +387,11 @@ namespace DataClass
                 new byte[] { 0, 6, 4 },  // 守城3+
                 new byte[] { 0, 4, 6 }   // 守城<3
             }
+        };
+
+        public static readonly string[] BattleTips = new string[]
+        {
+
         };
 
         public static readonly float[] hj = new float[] { 1.0F, 1.01F, 1.01F, 1.01F, 1.02F, 1.02F, 1.02F, 1.03F, 1.03F, 1.04F, 1.04F, 1.04F, 1.05F, 1.05F,

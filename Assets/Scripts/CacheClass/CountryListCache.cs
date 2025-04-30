@@ -35,16 +35,16 @@ public class CountryListCache
         country.countryKingId = kingId;
         
         City city = CityListCache.GetCityByCityId(cityId);
-        city.cityBelongKing = kingId;
+        city.ownerID = kingId;
         foreach (var id in generalIds)
         {
             city.AddOfficeGeneralId(id);
         }
-        city.AppointmentPrefect(kingId);
+        city.AppointPrefect(kingId);
         country.AddCity(cityId);
         
         generalIds.Remove(kingId);
-        country.inheritGeneralIds = generalIds.ToArray();
+        country.inheritors = generalIds.ToArray();
         AddCountry(country);
         GameInfo.playerCountryId = country.countryId;
     }
@@ -141,11 +141,11 @@ public class CountryListCache
 
         if (GameInfo.playerCountryId == countryId)
         {
-            GameInfo.countryDieTips = 3;
+            GameInfo.countryDieTips = 4;
         }
         else
         {
-            GameInfo.countryDieTips = 4;
+            GameInfo.countryDieTips = 3;
             GameInfo.ShowInfo = $"{GameInfo.chooseGeneralName} 势力灭亡了!";
         }
     }
@@ -336,18 +336,18 @@ public class CountryListCache
 
     public static int GetEnemyAdjacentCityDefenseAbility(City defCity, City atkCity)
     {
-        Country atkCountry = GetCountryByKingId(atkCity.cityBelongKing);
+        Country atkCountry = GetCountryByKingId(atkCity.ownerID);
         int maxDefenseAbility = defCity.GetDefenseAbility();
         byte[] cityIdArray = defCity.connectCityId;
 
         foreach (byte tempCityId in cityIdArray)
         {
-            if (tempCityId != atkCity.cityId)
+            if (tempCityId != atkCity.cityID)
             {
                 City tempCity = CityListCache.GetCityByCityId(tempCityId);
-                if (tempCity.cityBelongKing != 0)
+                if (tempCity.ownerID != 0)
                 {
-                    if (tempCity.cityBelongKing == atkCity.cityBelongKing || atkCountry.IsAlliance(tempCityId))
+                    if (tempCity.ownerID == atkCity.ownerID || atkCountry.IsAlliance(tempCityId))
                     {
                         maxDefenseAbility -= (int)(tempCity.GetMaxAtkPower() * 0.2);
                     }
@@ -373,7 +373,7 @@ public class CountryListCache
 
             foreach (byte cityId in connectCityIdArray)
             {
-                short belongKing = CityListCache.GetCityByCityId(cityId).cityBelongKing;
+                short belongKing = CityListCache.GetCityByCityId(cityId).ownerID;
                 if (belongKing != country.countryKingId)
                 {
                     Country otherCountry = GetCountryByKingId(belongKing);
@@ -405,7 +405,7 @@ public class CountryListCache
 
             foreach (byte cityId in cityIdArray)
             {
-                short belongKing = CityListCache.GetCityByCityId(cityId).cityBelongKing;
+                short belongKing = CityListCache.GetCityByCityId(cityId).ownerID;
                 if (belongKing != country.countryKingId)
                 {
                     Country otherCountry = GetCountryByKingId(belongKing);
@@ -433,14 +433,14 @@ public class CountryListCache
     public static List<byte> GetAdjacentEnemyCityIds(byte cityId)
     {
         City city = CityListCache.GetCityByCityId(cityId);
-        short kingId = city.cityBelongKing;
+        short kingId = city.ownerID;
         Country country = GetCountryByKingId(kingId);
         byte[] cityIdArray = city.connectCityId;
         List<byte> resultCityIdArray = new List<byte>();
 
         foreach (byte adjacentCityId in cityIdArray)
         {
-            short belongKing = CityListCache.GetCityByCityId(adjacentCityId).cityBelongKing;
+            short belongKing = CityListCache.GetCityByCityId(adjacentCityId).ownerID;
             if (belongKing != kingId)
             {
                 Country otherCountry = GetCountryByKingId(belongKing);
@@ -455,13 +455,13 @@ public class CountryListCache
 
     public static byte[] getEnemyCityIdArray_new(byte cityId)
     {
-        short kingId = CityListCache.GetCityByCityId(cityId).cityBelongKing;
+        short kingId = CityListCache.GetCityByCityId(cityId).ownerID;
         byte[] cityIdArray = CityListCache.GetCityByCityId(cityId).connectCityId;
         List<byte> resultCityIdArray = new List<byte>();
 
         foreach (byte tempCityId in cityIdArray)
         {
-            short belongKing = CityListCache.GetCityByCityId(tempCityId).cityBelongKing;
+            short belongKing = CityListCache.GetCityByCityId(tempCityId).ownerID;
             if (belongKing != kingId)
             {
                 resultCityIdArray.Add(tempCityId);
@@ -475,11 +475,11 @@ public class CountryListCache
     public static int GetEnemyAdjacentMaxAtkPower(byte cityId)
     {
         City city = CityListCache.GetCityByCityId(cityId);
-        short kingId = city.cityBelongKing;
+        short kingId = city.ownerID;
         Country country = GetCountryByKingId(kingId);
         List<int> resultAtkPowerList = (from adjacentCityId in city.connectCityId select CityListCache
             .GetCityByCityId(adjacentCityId) into otherCity let belongKing = otherCity
-            .cityBelongKing where belongKing != kingId let otherCountry = GetCountryByKingId(belongKing) 
+            .ownerID where belongKing != kingId let otherCountry = GetCountryByKingId(belongKing) 
             where otherCountry != null where otherCountry.GetAllianceById(country.countryId) == null select otherCity
                 .GetMaxAtkPower()).ToList();
 
@@ -488,7 +488,7 @@ public class CountryListCache
 
     public static int GetOtherCityMaxAtkPower(byte cityId, byte beCityId)
     {
-        short kingId = CityListCache.GetCityByCityId(cityId).cityBelongKing;
+        short kingId = CityListCache.GetCityByCityId(cityId).ownerID;
         Country country = GetCountryByKingId(kingId);
         byte[] cityIdArray = CityListCache.GetCityByCityId(cityId).connectCityId;
         int[] resultAtkPowerArray = new int[0];
@@ -497,7 +497,7 @@ public class CountryListCache
         {
             if (beCityId != cityIdArray[i])
             {
-                short belongKing = CityListCache.GetCityByCityId(cityIdArray[i]).cityBelongKing;
+                short belongKing = CityListCache.GetCityByCityId(cityIdArray[i]).ownerID;
                 if (belongKing != kingId)
                 {
                     Country otherCountry =  GetCountryByKingId(belongKing);
@@ -540,7 +540,7 @@ public class CountryListCache
             return 0;
         }
 
-        short tarKingId = city.cityBelongKing;
+        short tarKingId = city.ownerID;
         // 检查 kingId 是否有效并获取所属国家
         Country tarCountry = GetCountryByKingId(tarKingId);
         if (tarCountry == null)
@@ -552,7 +552,7 @@ public class CountryListCache
         byte[] cityIdArray = city.connectCityId;
         if (cityIdArray == null || cityIdArray.Length == 0)
         {
-            Debug.LogWarning($"City {city.cityId} has no connected cities.");
+            Debug.LogWarning($"City {city.cityID} has no connected cities.");
             return 0;
         }
 
@@ -561,7 +561,7 @@ public class CountryListCache
         // 遍历连接的城市 ID
         for (int i = 0; i < cityIdArray.Length; i++)
         {
-            if (cityIdArray[i] == excludeCity.cityId) 
+            if (cityIdArray[i] == excludeCity.cityID) 
                 continue; // 排除特定城市 ID
 
             // 获取连接城市的对象并检查
@@ -572,7 +572,7 @@ public class CountryListCache
                 continue;
             }
 
-            short belongKing = connectedCity.cityBelongKing;
+            short belongKing = connectedCity.ownerID;
 
             // 检查是否是敌方城市
             if (belongKing != 0 && belongKing != tarKingId)
@@ -585,7 +585,7 @@ public class CountryListCache
                 }
 
                 // 检查是否为联盟国家
-                if (otherCountry.GetAllianceById(GetCountryByKingId(excludeCity.cityBelongKing).countryId) == null)
+                if (otherCountry.GetAllianceById(GetCountryByKingId(excludeCity.ownerID).countryId) == null)
                 {
                     int atkPower = connectedCity.GetMaxAtkPower();
                     resultAtkPowerList.Add(atkPower);
@@ -606,7 +606,7 @@ public class CountryListCache
     }
 
     
-    public static byte GetAIOredrNum(byte curTurnsCountryId)
+    public static byte GetAIOrderNum(byte curTurnsCountryId)
     {
         byte haveCityNum = GetCountryByCountryId(curTurnsCountryId).GetHaveCityNum();
         if (haveCityNum < 3)
@@ -621,33 +621,4 @@ public class CountryListCache
         return haveCityNum;
     }
 
-}
-
-
-
-
-
-// 定义一个名为Alliance的类，用于表示联盟信息
-[System.Serializable] // 此属性允许Unity序列化此类，以便在Inspector中使用
-public class Alliance
-{
-    // 存储联盟所属势力ID的字段
-    public byte countryId;
-
-    // 存储联盟持续月份的字段，已在构造函数中初始化
-    public byte months;
-
-    // Alliance类的构造函数，接受势力ID和月份作为参数
-    public Alliance(byte countryId, byte months)
-    {
-        this.countryId = countryId; // 初始化势力ID
-        this.months = months;      // 初始化月份
-    }
-
-    // 联盟持续月份的属性，提供getter和setter方法
-    public byte Months
-    {
-        get { return months; }
-        set { months = value; }
-    }
 }

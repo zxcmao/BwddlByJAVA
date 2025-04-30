@@ -17,7 +17,7 @@ namespace UIClass
         [SerializeField] private Button confirmButton;
         [SerializeField] private Button cancelButton;
     
-        [SerializeField] private RawImage headImage;
+        [SerializeField] private Image headImage;
         [SerializeField] private Image phaseBar;
         [SerializeField] private Image curPhysicalBar;
         [SerializeField] private Image soldierBar;
@@ -42,12 +42,19 @@ namespace UIClass
         
         [SerializeField] private UITips uiTips;
         private byte _countryId;
-        private Dictionary<byte, General> _kingList = new Dictionary<byte, General>();
+        private Dictionary<byte, General> _kingList;
 
         public void SelectKing()
         {
+            _kingList = new Dictionary<byte, General>();
+            
+            UnityEngine.AddressableAssets.Addressables.LoadAssetAsync<GameObject>("Assets/Prefabs/KingToggle.prefab")
+                .Completed += handle =>
+            {
+                kingToggle = handle.Result;
+                SpawnKing();
+            };
             gameObject.SetActive(true);
-            SpawnKing();
             confirmButton.gameObject.SetActive(true);
             confirmButton.onClick.RemoveAllListeners();
             confirmButton.onClick.AddListener(OnClickConfirmButton);
@@ -58,6 +65,8 @@ namespace UIClass
 
         private void OnClickConfirmButton()
         {
+            DataManager.Release(headImage.sprite);
+            DataManager.Release(kingToggle);
             GameInfo.playerCountryId = _countryId;
             GameInfo.PlayingState = GameState.GameStart;
             confirmButton.gameObject.SetActive(false);
@@ -68,6 +77,8 @@ namespace UIClass
     
         private void OnClickCancelButton()
         {
+            DataManager.Release(headImage.sprite);
+            DataManager.Release(kingToggle);
             confirmButton.gameObject.SetActive(false);
             cancelButton.gameObject.SetActive(false);
             gameObject.SetActive(false);
@@ -83,7 +94,7 @@ namespace UIClass
                 _kingList.Add(pair.Key, king);
                 GameObject kingObj = Instantiate(kingToggle, kingRoom);
                 Toggle toggle = kingObj.GetComponent<Toggle>();
-                kingObj.GetComponentInChildren<Text>().text = king.generalName;
+                kingObj.GetComponentInChildren<TextMeshProUGUI>().text = king.generalName;
                 toggle.group = kingGroup;
                 toggle.onValueChanged.AddListener((isOn) => OnClickKingToggle(toggle, pair.Key));
             }
@@ -91,7 +102,7 @@ namespace UIClass
             GameObject newKingObj = Instantiate(kingToggle, kingRoom);
             Toggle newToggle = newKingObj.GetComponent<Toggle>();
             newToggle.group = kingGroup;
-            newKingObj.GetComponentInChildren<Text>().text = "自建";
+            newKingObj.GetComponentInChildren<TextMeshProUGUI>().text = "自建";
             newKingObj.GetComponent<Toggle>().onValueChanged.AddListener((isOn) => NewCountryToggle());
             kingRoom.GetChild(0).GetComponent<Toggle>().isOn = true;
         }
@@ -108,13 +119,12 @@ namespace UIClass
 
         private void NewCountryToggle()
         {
-            DataManagement.ReadCustomGeneralList();
+            DataManager.ReadCustomGeneralList();
             
             if (GameInfo.customGeneralList == null || GameInfo.customGeneralList.Count == 0)//自定义将领文件不存在
             {
                 // 提示无自建将领
-                uiTips.ShowOptionalTips("当前无自建武将，是否新建武将？");
-                uiTips.OnOptionSelected += HandleSelfBuildGeneral;
+                uiTips.ShowOptionalTips("当前无自建武将，是否新建武将？", HandleSelfBuildGeneral);
             }
             else// 如果存在自定义将领文件
             {
@@ -122,7 +132,7 @@ namespace UIClass
                 {
                     GeneralListCache.AddGeneral(general);
                 }
-                GameInfo.optionalGeneralIds = GameInfo.customGeneralList.Select(general => general.generalId).ToList();
+                GameInfo.SetGeneralOption(GameInfo.customGeneralList.Select(general => general.generalId));
                 GameInfo.Task = TaskType.SelfBuild;
                 SceneManager.LoadScene("SelectGeneral");
             }
@@ -136,31 +146,30 @@ namespace UIClass
                 SceneManager.LoadScene("SelectGeneral");
             }
             
-            uiTips.OnOptionSelected -= HandleSelfBuildGeneral;
         }
 
         private void ShowKingInfo()
         {
             General king = _kingList[_countryId];
             Country country = CountryListCache.GetCountryByCountryId(_countryId);
-            headImage.texture = Resources.Load<Texture2D>($"HeadImage/{king.generalId}");
+            DataManager.LoadSpriteToImage($"Assets/Image/Head/{king.generalId}.jpg", headImage);
             generalName.text = king.generalName;
             level.text = "Lv." + king.level;
             cityNum.text = country.GetHaveCityNum().ToString();
             grade.text = king.GetGeneralGradeS();
             phase.text = king.phase.ToString();
-            curPhysicl.text = king.curPhysical.ToString();
+            curPhysicl.text = king.health.ToString();
             lead.text = king.lead.ToString();
             force.text = king.force.ToString();
-            IQ.text = king.IQ.ToString();
-            political.text = king.political.ToString();
-            moral.text = king.moral.ToString();
+            IQ.text = king.wisdom.ToString();
+            political.text = king.govern.ToString();
+            moral.text = king.charm.ToString();
             soldier.text = country.GetCountrySoldierNum().ToString();
-            weapon.text = WeaponListCache.GetWeapon(king.weapon).weaponName;
+            weapon.text = WeaponListCache.GetWeapon(king.arm).weaponName;
             armor.text = WeaponListCache.GetWeapon(king.armor).weaponName;
 
             phaseBar.transform.rotation = Quaternion.Euler(0, 0, (-(float)king.phase + 6) * (360f / 149f)); 
-            curPhysicalBar.fillAmount = (float)(king.curPhysical / 100f);
+            curPhysicalBar.fillAmount = (float)(king.health / 100f);
             soldierBar.fillAmount = (float)country.GetCountrySoldierNum() / country.GetMaxCountrySoldierNum();
         }
     

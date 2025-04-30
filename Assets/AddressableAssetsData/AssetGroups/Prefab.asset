@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Prefab
+  m_EditorClassIdentifier: 
+  m_GroupName: Prefab
+  m_GUID: 0584ee698a0ebf34a8009832f24f674d
+  m_SerializeEntries:
+  - m_GUID: 04bd2f3574cbf1d498a4a1b45a80bb91
+    m_Address: Assets/Prefabs/GeneralAssign.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1c9b32625ba14044eb4ea6dbf89cfff7
+    m_Address: Assets/Prefab/ArrowPrefab.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - BattlePrefab
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6202aa4d3fb32ef4382293b6c0bf2c18
+    m_Address: Assets/Prefabs/Unit.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 690cdaa4e14625b478be046af21354d1
+    m_Address: Assets/Prefabs/KingToggle.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a1035c8e40de07b4791f134aa29b649b
+    m_Address: Assets/Prefabs/GeneralToggle.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fd4538c3ad07877459b02911a998ab6c
+    m_Address: Assets/Prefabs/Marker.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 4d81225103f817f439bd10945925ca66, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 035ab027c8c59654f9407cc2149bf49d, type: 2}
+    - {fileID: 11400000, guid: bcdc40bd91e9f004b86a04052c7bf5c6, type: 2}

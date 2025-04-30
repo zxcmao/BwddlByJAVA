@@ -1,7 +1,5 @@
 using System;
 using Battle;
-using DataClass;
-using UnityEngine;
 
 namespace BaseClass
 {
@@ -10,6 +8,12 @@ namespace BaseClass
         byte Duration { get; set; }
     }
 
+    public interface IJudgeTactic
+    {
+        // 是否成功
+        bool IsSuccessful(bool isPlayer);
+    }
+    
     public abstract class Tactic
     {
         // 战术ID
@@ -23,11 +27,11 @@ namespace BaseClass
 
         // 消耗计策点
         public abstract byte Cost { get; }
-    
-        // 是否可用（默认判断计策点是否足够）
-        public virtual bool CanExecute(int currentTacticPoints, bool isPlayer)
+
+        // 计策点是否足够
+        public bool IsEnough(bool isPlayer)
         {
-            return currentTacticPoints >= Cost;
+            return Cost <= (isPlayer ? BattleManager.Instance.hmTacticPoint : BattleManager.Instance.aiTacticPoint);
         }
 
         // 执行战术（每个子类实现具体逻辑）
@@ -41,16 +45,16 @@ namespace BaseClass
     }
 
     // 子类：挑战
-    public class DuelTactic : Tactic
+    public class DuelTactic : Tactic, IJudgeTactic
     {
         public override byte TacticID => 1;
         public override string Name => "挑战";
         public override string Description => "向敌将发出单挑邀请.耗费2个计策点";
         public override byte Cost => 2;
 
-        public override bool CanExecute(int currentTacticPoints, bool isPlayer)
+        public bool IsSuccessful(bool isPlayer)
         {
-            if (currentTacticPoints < Cost) return false;
+            if (!IsEnough(isPlayer)) return false;
             General aiGeneral = BattleManager.Instance.aiGeneral;
             General hmGeneral = BattleManager.Instance.hmGeneral;
             General doGen = null;
@@ -66,7 +70,7 @@ namespace BaseClass
                 beGen = hmGeneral;
             }
         
-            if (beGen.GetCurPhysical() < 25) {
+            if (beGen.GetHP() < 25) {
                 return false;
             }
      
@@ -81,9 +85,9 @@ namespace BaseClass
             int doI = (int)Math.Ceiling((SoloManager.GetAtkDea(
                     doGen, doGen.GetAttackPower(), beGen.GetDefendPower()) *
                 SoloManager.GetPercentage(doGen, beGen, false, false) / 100.0));
-            int beval = beI * beGen.GetCurPhysical();
+            int beval = beI * beGen.GetHP();
 
-            int doval = doI * doGen.GetCurPhysical();
+            int doval = doI * doGen.GetHP();
             if (beval > doval + 25 &&
                 UnityEngine.Random.Range(0, beval - doval) > 25)
             {
@@ -100,7 +104,7 @@ namespace BaseClass
     }
 
     // 子类：咒缚
-    public class BindTactic : Tactic, IUpdatableTactic
+    public class BindTactic : Tactic, IUpdatableTactic, IJudgeTactic
     {
         public override byte TacticID => 2;
         public override string Name => "咒缚";
@@ -109,9 +113,9 @@ namespace BaseClass
     
         // 持续时间
         public byte Duration { get; set; } = 2;
-        public override bool CanExecute(int currentTacticPoints, bool isPlayer)
+        public bool IsSuccessful(bool isPlayer)
         {
-            if (currentTacticPoints < Cost) return false;
+            if (!IsEnough(isPlayer)) return false;
             General hmGeneral = BattleManager.Instance.hmGeneral;
             General aiGeneral = BattleManager.Instance.aiGeneral;
             General doGen = null;
@@ -128,7 +132,7 @@ namespace BaseClass
             }
             
         
-            int i1 = doGen.IQ - beGen.IQ;
+            int i1 = doGen.wisdom - beGen.wisdom;
             if (doGen.HasSkill(5, 9))// 特技束缚
             {
                 i1 += 30;
@@ -229,7 +233,7 @@ namespace BaseClass
             {
                 if (isPlayer)
                 {
-                    return BattleManager.Instance.hmGeneral.generalSoldier >= 500;
+                    return BattleManager.Instance.hmGeneral.soldiers >= 500;
                 }
             }
             return false;

@@ -9,7 +9,7 @@ namespace DataClass
         // 游戏月份
         public static byte month = 1;
         // 游戏年份
-        public static short years = 189;
+        public static short years = 251;
         // 前回合势力ID
         public static int curTurnIndex;
         // 现在回合势力ID
@@ -84,23 +84,54 @@ namespace DataClass
         }
     
         /// <summary>
-        /// 减少玩家命令
+        /// 减少玩家命令，如果减少到0则返回true表示回合结束
         /// </summary>
-        public static void SubPlayerOrder()
+        /// <returns>如果玩家命令数为0，则返回true；否则返回false</returns>
+        public static bool SubPlayerOrder()
         {
-            playerOrderNum = (byte)(playerOrderNum - 1);
-            Debug.Log($"减少后玩家命令数量：{playerOrderNum}");
-            if (playerOrderNum <= 0 || playerOrderNum > 8)
+            // 检查当前playerOrderNum是否在有效范围内（虽然初始化为8，但这里做范围检查是个好习惯）
+            if (playerOrderNum < 0 || playerOrderNum > 8)
             {
-                playerOrderNum = 0;
-                // 切换到回合结束
-                Debug.Log("回合结束切换到AI");
-                PlayingState = GameState.AITurn;
+                Debug.LogError("玩家命令数超出有效范围:" + playerOrderNum);
+                playerOrderNum = 0; // 重置为0
+                return false; // 或者抛出异常等
             }
-        }
- 
 
-  
+            // 如果playerOrderNum大于0，则减1
+            if (playerOrderNum > 0)
+            {
+                playerOrderNum--;
+                Debug.Log($"减少后玩家命令数量：{playerOrderNum}");
+
+                // 如果减少到0，则返回true表示回合结束
+                if (playerOrderNum == 0)
+                {
+                    Debug.Log("玩家命令用尽，回合结束");
+                    return true;
+                }
+            }
+
+            // 默认情况下返回false，表示回合未结束
+            return false;
+        }
+
+        public static void SetGeneralOption(IEnumerable<short> generalIds)
+        {
+            optionalGeneralIds.Clear();
+            optionalGeneralIds.AddRange(generalIds);
+        }
+
+        public static void SetTargetGeneral(IEnumerable<short> generalIds)
+        {
+            targetGeneralIds.Clear();
+            targetGeneralIds.AddRange(generalIds);
+        }
+
+        public static void SetTargetGeneral(short generalId)
+        {
+            targetGeneralIds.Clear();
+            targetGeneralIds.Add(generalId);
+        }
     
 
 
@@ -119,36 +150,24 @@ namespace DataClass
         PlayerTurn,
         AITurn,
         GameOver,
-        GameSuccess,
-
-        AIFail,
-        PlayerInherit,
-        AIInherit,
-        AISuccess,
-
-        AITruce,
-        AIAlienate,
-        AIBribe,
-
-        AIvsPlayer,
-        AIOccupy,
-        AIWinPlayer,
+        GameWin,
+        
+        Inherit,
+        Truce,
+        Bribe,
 
         PlayervsAI,
-        PlayerUseOrder,
-        PlayerWinAI,
-
-        AIvsAI,
-        AIWinAI,
-        AILoseAI,
+        AIvsPlayer,
+        Occupy,
+        AIAttack,
+        AIWin,
+        AILose,
         
-
-        MoneyTax,
-        FoodTax,
+        Tax,
+        Harvest,
         Rebel,
-        AllianceEnd,
 
-        Famine,
+       
         Drought,
         Flood,
         Plague,
@@ -156,26 +175,28 @@ namespace DataClass
         Turmoil,
         Plunder,
 
+        /*Famine,
         Tsunami,
         Earthquake,
         Meteor,
         Snow,
-        Storm,
-        
-        
+        Storm*/
     }
 
     public enum TaskType
     {
         None,           // 无
         Move,           // 移动
+        MoveDeny,       // 移动禁止
         OverMove,       // 移动过多
         MovePrefect,    // 移动太守
         Attack,         // 攻城
-        OverAttack,     // 攻城过载
+        AttackDeny,     // 不可攻城
+        OverAttack,     // 攻城过多
         Conscript,      // 征兵
         Assign,         // 分配
         Transport,      // 输送
+        TransportDeny,  // 无法输送
         End,            // 结束
         Search,         // 搜索
         SearchMoney,    // 搜索金钱

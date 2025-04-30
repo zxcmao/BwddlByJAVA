@@ -82,7 +82,7 @@ namespace Battle
             {
                 Destroy(gameObject); // 防止重复实例
             }
-            DataManagement.Instance.LoadAndInitializeData();
+            //DataManager.Instance.LoadAndInitializeData();
         }
 
         // 清理所有数据
@@ -151,7 +151,7 @@ namespace Battle
             CheckSceneValidity();
             if (scene.name == "PreBattleScene")
             {
-                StartCoroutine(DataManagement.LoadAllFormations());
+                StartCoroutine(DataManager.LoadAllFormations());
                 InitBattle();
             }
             else if (scene.name == "BattleScene")
@@ -172,19 +172,20 @@ namespace Battle
         private void InitBattle()
         {
             Debug.Log($"开始战斗时{Time.time}和游戏速度{Time.timeScale}");
+            //battleState = BattleState.None;
             hmGeneral = GeneralListCache.GetGeneral(WarManager.Instance.hmUnitObj.genID);
             aiGeneral = GeneralListCache.GetGeneral(WarManager.Instance.aiUnitObj.genID);
             isHmDef = WarManager.Instance.warState == WarState.AITurn;
             battleTerrain = isHmDef ? WarManager.Instance.hmUnitObj.Terrain : WarManager.Instance.aiUnitObj.Terrain;
-            hmTacticPoint = (byte)(hmGeneral.IQ * 13 / 100);
-            aiTacticPoint = (byte)(aiGeneral.IQ * 13 / 100);
+            hmTacticPoint = (byte)(hmGeneral.wisdom * 13 / 100);
+            aiTacticPoint = (byte)(aiGeneral.wisdom * 13 / 100);
             
             UIPreBattle.Instance.Init();
         }
         
         private byte GetTroopsNum(General general)
         {
-            short soldierNum = general.generalSoldier;
+            short soldierNum = general.soldiers;
             if(soldierNum <= 0) return 1;
             return (byte)((soldierNum - 1) / 300 + 2);
         }
@@ -195,8 +196,8 @@ namespace Battle
             General general = isPlayer ? hmGeneral : aiGeneral;
             byte[] sc = FloorManager.SetCAI(general, battleTerrain);
             byte troopCount = GetTroopsNum(general);
-            short remainingHealth = general.generalSoldier;
-            short captainHealth = (short)(general.curPhysical * 3);
+            short remainingHealth = general.soldiers;
+            short captainHealth = (short)(general.health * 3);
 
             troopData[0].health = captainHealth;
             troopData[0].index = 0;
@@ -266,8 +267,8 @@ namespace Battle
         public void StartManualBattle()
         {
             // 设置将军 ID 和索引
-            hmSoldierNum = hmGeneral.generalSoldier;
-            aiSoldierNum = aiGeneral.generalSoldier;
+            hmSoldierNum = hmGeneral.soldiers;
+            aiSoldierNum = aiGeneral.soldiers;
             battleState = isHmDef ? BattleState.AITurn : BattleState.PlayerTurn;
             
             FloorManager.Instance.InitFloor();
@@ -291,12 +292,12 @@ namespace Battle
         {
             foreach (var t in hmTurnOrder.Where(t => t.troopType == TroopType.Captain))
             {
-                t.health = (short)(hmGeneral.curPhysical * 3);
+                t.health = (short)(hmGeneral.health * 3);
                 break;
             }
             foreach (var t in aiTurnOrder.Where(t => t.troopType == TroopType.Captain))
             {
-                t.health = (short)(aiGeneral.curPhysical * 3);
+                t.health = (short)(aiGeneral.health * 3);
                 break;
             }
             
@@ -482,7 +483,27 @@ namespace Battle
             
             StartTurn();
         }
-    
+
+        public bool SubTacticalPoint(int num, bool isPlayer)
+        {
+            if (num <= 0) return true;
+            
+            int tacticPoint = isPlayer ? hmTacticPoint : aiTacticPoint;
+            int newTacticPoint = tacticPoint - num;
+
+            if (newTacticPoint < 0 || newTacticPoint > 15) return false;
+            
+            if (isPlayer)
+            {
+                hmTacticPoint = (byte)newTacticPoint;
+            }  
+            else
+            {
+                aiTacticPoint = (byte)newTacticPoint;
+            }
+            return true;
+        }
+
         public void ExecuteSolo()
         {
             StopAllCoroutines();
@@ -694,7 +715,7 @@ namespace Battle
                             battleState = BattleState.AIRetreat;
                             HandleBattleEnd($"敌军逃窜!体力减少{retreatHurt}");
                         },
-                        aiRetreatCityCheck: () => WarManager.AIGetRetreatCityList(WarManager.Instance.aiKingId).Count > 0
+                        aiRetreatCityCheck: () => WarManager.AIGetRetreatCityList().Count > 0
                     );
                     break;
             }
@@ -742,7 +763,7 @@ namespace Battle
             {
                 if (isAI && aiRetreatCityCheck != null && aiRetreatCityCheck.Invoke())
                 {
-                    if (general.GetCurPhysical() <= 10)
+                    if (general.GetHP() <= 10)
                     {
                         retreatHurt = specialHurtCalculation();
                     }
@@ -758,7 +779,7 @@ namespace Battle
             }
 
             // 检查体力是否耗尽
-            if (general.SubHp(retreatHurt))
+            if (general.SubHP(retreatHurt))
             {
                 onDeath?.Invoke();
             }
@@ -794,7 +815,7 @@ namespace Battle
             aiGeneralHurt = 0;
 
             // AI特技攻心处理
-            if (aiGeneral.HasSkill(3, 6) && aiGeneral.generalSoldier > 0)
+            if (aiGeneral.HasSkill(3, 6) && aiGeneral.soldiers > 0)
             {
                 if (Random.Range(0,5) < 1)
                     aiGeneral.AddSoldier(expAI / 3);
@@ -803,7 +824,7 @@ namespace Battle
             // 玩家撤退状态下的逃兵减少处理
             if (battleState == BattleState.HMRetreat)
             {
-                if (hmGeneral.generalSoldier > 0)
+                if (hmGeneral.soldiers > 0)
                 {
                     int i = Random.Range(3,18);
                     short deserter = (short)(i * 15); // 计算减少的士兵数量
@@ -822,7 +843,7 @@ namespace Battle
             }
 
             // 如果玩家具有特技攻心
-            if (hmGeneral.HasSkill(3, 6) && hmGeneral.generalSoldier > 0)
+            if (hmGeneral.HasSkill(3, 6) && hmGeneral.soldiers > 0)
             {
                 if (Random.Range(0,5) < 1)
                     hmGeneral.AddSoldier(expHM / 3);
@@ -838,13 +859,13 @@ namespace Battle
             int aiPf = 0;     // AI战力系数
             int i;
             //双方武将设定初始兵力用于计算增加经验
-            short hmInitialSoldier = hmGeneral.generalSoldier;
-            short aiInitialSoldier = aiGeneral.generalSoldier;	
+            short hmInitialSoldier = hmGeneral.soldiers;
+            short aiInitialSoldier = aiGeneral.soldiers;	
             // 玩家小兵战斗力计算
             for (i = 1; i < hmTurnOrder.Count; i++)
             {
                 int atk = (short)((hmGeneral.lead * 2 + hmGeneral.force) / 3 + (hmGeneral.lead + hmGeneral.force) * (hmGeneral.level - 1) / 25);
-                int def = (short)((hmGeneral.lead * 2 + hmGeneral.IQ) / 3 + (hmGeneral.lead + hmGeneral.IQ) * (hmGeneral.level - 1) / 25);
+                int def = (short)((hmGeneral.lead * 2 + hmGeneral.wisdom) / 3 + (hmGeneral.lead + hmGeneral.wisdom) * (hmGeneral.level - 1) / 25);
 
                 // 检查特技金刚，触发并调整防御力
                 if (hmGeneral.HasSkill(2, 7) && Random.Range(0,3) < 1)
@@ -947,7 +968,7 @@ namespace Battle
             for (i = 1; i < aiTurnOrder.Count; i++) 
             {
                 int theAtk = (short)((aiGeneral.lead * 2 + aiGeneral.force) / 3 + (aiGeneral.lead + aiGeneral.force) * (aiGeneral.level - 1) / 25);;
-                int theDef = (short)((aiGeneral.lead * 2 + aiGeneral.IQ) / 3 + (aiGeneral.lead + aiGeneral.IQ) * (aiGeneral.level - 1) / 25);
+                int theDef = (short)((aiGeneral.lead * 2 + aiGeneral.wisdom) / 3 + (aiGeneral.lead + aiGeneral.wisdom) * (aiGeneral.level - 1) / 25);
 
                 if (aiGeneral.HasSkill(2, 7) && Random.Range(0,3) < 1)
                     theDef += theDef / 2;
@@ -1038,11 +1059,11 @@ namespace Battle
     	
             hmPf = hmPower;
             aiPf = aiPower;
-            hmPower = hmPf*hmGeneral.generalSoldier;
-            aiPower = aiPf*aiGeneral.generalSoldier;
+            hmPower = hmPf*hmGeneral.soldiers;
+            aiPower = aiPf*aiGeneral.soldiers;
             if (hmPower >= aiPower)
             {
-                aiGeneral.generalSoldier = 0;
+                aiGeneral.soldiers = 0;
                 int ends = (hmPower-aiPower)/hmPf;
                 if (ends < 0)
                 {
@@ -1052,11 +1073,11 @@ namespace Battle
                 {
                     ends = 3000;
                 }
-                hmGeneral.generalSoldier = (short) ends;
+                hmGeneral.soldiers = (short) ends;
             }
             else 
             {
-                hmGeneral.generalSoldier = 0;
+                hmGeneral.soldiers = 0;
                 int ends = (aiPower - hmPower)/aiPf;
                 if (ends < 0)
                 {
@@ -1066,22 +1087,22 @@ namespace Battle
                 {
                     ends = 3000;
                 }
-                aiGeneral.generalSoldier = (short) ends;
+                aiGeneral.soldiers = (short) ends;
             }
         
-            int expHM = (aiInitialSoldier - aiGeneral.generalSoldier);
-            int expAI = (hmInitialSoldier - hmGeneral.generalSoldier);
+            int expHM = (aiInitialSoldier - aiGeneral.soldiers);
+            int expAI = (hmInitialSoldier - hmGeneral.soldiers);
         
             GeneralListCache.AddExp_P(hmGeneral,aiGeneral, expHM);
             GeneralListCache.AddExp_P(aiGeneral,hmGeneral, expAI);
             hmGeneral.AddLeadExp((byte) (expHM/300));
             aiGeneral.AddLeadExp((byte) (expAI/300));
         
-            if (aiGeneral.generalSoldier == 0)
+            if (aiGeneral.soldiers == 0)
             {
                 battleState = BattleState.BattleWin;
             }
-            else if(hmGeneral.generalSoldier == 0)
+            else if(hmGeneral.soldiers == 0)
             {
                 battleState = BattleState.BattleLose;
             }

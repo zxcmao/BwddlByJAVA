@@ -4,7 +4,6 @@ using GameClass;
 using TMPro;
 using UIClass;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -19,6 +18,7 @@ namespace TurnClass
         [SerializeField] private GameObject backGround;
         [SerializeField] private GameObject startMenu;
         [SerializeField] private GameObject optionButtonPrefab;
+        [SerializeField] private TextMeshProUGUI loadingText;
         [SerializeField] private Button startButton;
         [SerializeField] private Button loadButton;
         [SerializeField] private Button selfBuildButton;
@@ -63,10 +63,12 @@ namespace TurnClass
             infoButton.onClick.AddListener(OnInfoButtonClick);
             exitButton.onClick.AddListener(OnExitButtonClick);
             
+            // 设置目标帧率为60FPS
+            Application.targetFrameRate = 60;
             SoundManager.Instance.SetBGMVolume(PlayerPrefs.GetFloat("bgmVolume", 0.5f));
             if (PlayerPrefs.GetFloat("bgmVolume", 0.5f) != 0)
             {
-                SoundManager.Instance.PlayBGM("1");
+                SoundManager.Instance.PlayBGM("Assets/Audio/Bgm/1.ogg");
             }
         }
 
@@ -84,12 +86,29 @@ namespace TurnClass
         private void OnChapterButtonClick()
         {
             GameInfo.chapter = "群雄起源";
-            DataManagement.Instance.LoadAndInitializeData();
-            chapterMenu.SetActive(false);
-            difficultyMenu.SetActive(true);
-            easyButton.onClick.AddListener(delegate { OnDifficultyButtonClick(1);});
-            normalButton.onClick.AddListener(delegate { OnDifficultyButtonClick(2);});
-            hardButton.onClick.AddListener(delegate { OnDifficultyButtonClick(3);});
+            //DataManager.Instance.LoadAndInitializeData();
+            
+            StartCoroutine(DataManager.LoadAllConfigs(
+                progress =>
+                {
+                    //loadingSlider.value = progress;
+                    loadingText.text = $"{progress * 100f:F0}%";
+                },
+                () =>
+                {
+                    Debug.Log("配置加载完成，进入游戏！");
+                    // 可以关闭加载界面，或者进入下一步
+                    
+                    loadingText.gameObject.SetActive(false);
+                    
+                    chapterMenu.SetActive(false);
+                    difficultyMenu.SetActive(true);
+                    easyButton.onClick.AddListener(delegate { OnDifficultyButtonClick(1);});
+                    normalButton.onClick.AddListener(delegate { OnDifficultyButtonClick(2);});
+                    hardButton.onClick.AddListener(delegate { OnDifficultyButtonClick(3);});
+                }
+            ));
+            
         }
 
         private void OnDifficultyButtonClick(byte difficulty)
@@ -112,8 +131,8 @@ namespace TurnClass
             loadPanel.RecordIndex -= LoadGame;
             if (index != 0)
             {
-                DataManagement.Instance.LoadGame(index - 1);
-                SceneManager.LoadSceneAsync("CityScene");
+                DataManager.LoadGame(index - 1);
+                SceneManager.LoadScene("CityScene");
             }
             else
             {
@@ -124,14 +143,12 @@ namespace TurnClass
         private void OnSelfBuildButtonClick()
         {
             startMenu.SetActive(false);
-            DataManagement.ReadCustomGeneralList();
-            uiTips.ShowOptionalTips("创建还是删除武将？");
-            uiTips.OnOptionSelected += OnSelfBuildSelected;
+            DataManager.ReadCustomGeneralList();
+            uiTips.ShowOptionalTips("创建还是删除武将？", OnSelfBuildSelected);
         }
 
         private void OnSelfBuildSelected(bool isCreate)
         {
-            uiTips.OnOptionSelected -= OnSelfBuildSelected;
             uiTips.gameObject.SetActive(false);
             if (!isCreate)//如果选择删除武将
             {
@@ -144,8 +161,7 @@ namespace TurnClass
                 else
                 {
                     GameInfo.Task = TaskType.SelfRemove;
-                    GameInfo.optionalGeneralIds.Clear();
-                    GameInfo.optionalGeneralIds = GameInfo.customGeneralList.Select(x => x.generalId).ToList();
+                    GameInfo.SetGeneralOption(GameInfo.customGeneralList.Select(x => x.generalId));
                     SceneManager.LoadScene("SelectGeneral");
                 }
             }
@@ -167,7 +183,7 @@ namespace TurnClass
                 startMenu.SetActive(true);
                 confirmButton.gameObject.SetActive(false);
             });
-             StartCoroutine(DataManagement.ReadIntroduction((introText) =>
+             StartCoroutine(DataManager.ReadIntroduction((introText) =>
              {
                  if (!string.IsNullOrEmpty(introText))
                  {

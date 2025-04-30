@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Font
+  m_EditorClassIdentifier: 
+  m_GroupName: Font
+  m_GUID: f6b033f19ed9f0e498b9b02ef3e869e9
+  m_SerializeEntries:
+  - m_GUID: 2af9c71845776f843973d007728f1bf0
+    m_Address: Assets/Fonts/SIMLI SDF.asset
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 490e21e9c93dbf147a8c1781ab1ce8d1
+    m_Address: Assets/Fonts/SIMKAI SDF.asset
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 4d81225103f817f439bd10945925ca66, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 79afc41df0fae7345aa5b65e57d084ee, type: 2}
+    - {fileID: 11400000, guid: 287c46b655c310f4fa198ba7697f1cea, type: 2}
